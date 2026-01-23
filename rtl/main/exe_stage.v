@@ -1,0 +1,72 @@
+`include "defines.v"
+module exe_stage(
+    input wire clk,
+    input wire rst_n,
+    input wire [ID_EXE_BUS-1:0] id_exe_bus_in,
+    output wire [EXE_MEM_BUS-1:0] exe_mem_bus_out
+);
+
+reg [ID_EXE_BUS-1:0] id_exe_bus_r;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        id_exe_bus_r <= {ID_EXE_BUS{1'b0}};
+    end else begin
+        id_exe_bus_r <= id_exe_bus_in;
+    end 
+end
+wire [31:0] op1_data;
+wire [31:0] op2_data;
+wire [4:0] rd_out;
+wire rd_wen;
+wire [17:0] exe_fun;
+wire mem_we;
+wire mem_re;
+wire [2:0] wb_sel;
+assign {
+    op1_data,
+    op2_data,
+    rd_out,
+    rd_wen,
+    exe_fun,    
+    mem_we,
+    mem_re,
+    wb_sel
+} = id_exe_bus_r;
+
+wire ALU_ADD = inst_lw;
+wire ALU_SUB;
+wire ALU_AND;
+wire ALU_OR ;
+wire ALU_XOR;
+wire ALU_SLL;
+wire ALU_SRL;
+wire ALU_SRA;
+wire ALU_SLT;
+wire ALU_SLTU;
+wire ALU_BEQ;
+wire ALU_BNE;
+wire ALU_BGE;
+wire ALU_BGEU;
+wire ALU_BLT;
+wire ALU_BLTU;
+wire ALU_JALR;
+wire ALU_COPY1;
+wire ALU_X;
+assign {
+    ALU_ADD, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
+    ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
+    ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
+    ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X
+} = exe_fun;
+wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) : 32'b0;
+
+assign exe_mem_bus_out = {
+    alu_result,
+    rd_out,
+    rd_wen,
+    mem_we,
+    mem_re,
+    wb_sel
+};
+
+endmodule
