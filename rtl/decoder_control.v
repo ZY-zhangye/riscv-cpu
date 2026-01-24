@@ -3,23 +3,26 @@ module decoder_control (
     input wire rst_n,
     input wire [31:0] pc_in,
     input wire [31:0] inst_in,
-    input wire [4:0] wb_addr,
+    input wire [4:0] wb_addr /* verilator public */,
     input wire wb_we,
-    input wire [31:0] wb_data,
+    input wire [31:0] wb_data /* verilator public */,
     output wire [31:0] op1_data,
     output wire [31:0] op2_data,
     output wire [4:0] rd_out,
     output wire rd_wen,
-    output wire [17:0] exe_fun,
+    output wire [18:0] exe_fun,
     output wire mem_we,
     output wire mem_re,
-    output wire [2:0] wb_sel
+    output wire [2:0] wb_sel,
+    //debug
+    output [31:0] regs_out [0:31]
 );
 
 wire [6:0] opcode = inst_in[6:0];
 wire [2:0] funct3 = inst_in[14:12];
 wire [6:0] funct7 = inst_in[31:25];
 wire [4:0] rd = inst_in[11:7];
+// ...existing code...
 wire [4:0] rs1 = inst_in[19:15];
 wire [4:0] rs2 = inst_in[24:20];
 wire [11:0] imm_i = inst_in[31:20];
@@ -84,7 +87,7 @@ assign wb_sel = {WB_SEL_MEM, WB_SEL_PC, WB_SEL_CSR};
 
 
 //regfile实例化
-regfile u_regfile (
+regfile u_regfile  (
     .clk(clk),
     .rst_n(rst_n),
     .rs1_addr(rs1),
@@ -93,6 +96,7 @@ regfile u_regfile (
     .rd_data(wb_data),
     .rd_we(wb_we),
     .rs1_data(rs1_data),
-    .rs2_data(rs2_data)
+    .rs2_data(rs2_data),
+    .regs_out(regs_out)
 );
 endmodule

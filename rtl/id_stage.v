@@ -1,16 +1,16 @@
-`include "defines.v"
 module id_stage (
     input wire clk,
     input wire rst_n,
-    input wire [WB_DATA_BUS-1:0] wb_data_bus,
-    input wire [IF_ID_BUS-1:0] if_id_bus_in,
-    output wire [ID_EXE_BUS-1:0] id_exe_bus_out
+    input wire [37:0] wb_data_bus,
+    input wire [63:0] if_id_bus_in,
+    output wire [125:0] id_exe_bus_out,
+    //debug
+    output [31:0] regs_out [0:31]
 );
-
-reg [IF_ID_BUS-1:0] if_id_bus_r;
+reg [63:0] if_id_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        if_id_bus_r <= {IF_ID_BUS{1'b0}};
+        if_id_bus_r <= {64{1'b0}};
     end else begin
         if_id_bus_r <= if_id_bus_in;
     end
@@ -27,7 +27,7 @@ wire [31:0] op1_data;
 wire [31:0] op2_data;
 wire [4:0] rd_out;
 wire rd_wen;
-wire [17:0] exe_fun;
+wire [18:0] exe_fun;
 wire mem_we;
 wire mem_re;
 wire [2:0] wb_sel;
@@ -46,7 +46,8 @@ decoder_control u_decoder_control (
     .exe_fun(exe_fun),
     .mem_we(mem_we),
     .mem_re(mem_re),
-    .wb_sel(wb_sel)
+    .wb_sel(wb_sel),
+    .regs_out(regs_out)
 );
 
 assign id_exe_bus_out = {
@@ -57,7 +58,8 @@ assign id_exe_bus_out = {
     exe_fun,
     mem_we,
     mem_re,
-    wb_sel
+    wb_sel,
+    id_pc
 };
 
 

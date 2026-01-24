@@ -1,11 +1,9 @@
-`include "defines.v"
-
 module if_stage (
     input  wire        clk,
     input  wire        rst_n,
     input  wire [31:0] inst_in,
     output wire [31:0] pc_out,
-    output wire [IF_ID_BUS-1:0] if_id_bus_out
+    output wire [63:0] if_id_bus_out
 );
     wire [31:0] seq_pc;
     wire [31:0] next_pc;

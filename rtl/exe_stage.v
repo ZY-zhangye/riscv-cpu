@@ -1,15 +1,13 @@
-`include "defines.v"
 module exe_stage(
     input wire clk,
     input wire rst_n,
-    input wire [ID_EXE_BUS-1:0] id_exe_bus_in,
-    output wire [EXE_MEM_BUS-1:0] exe_mem_bus_out
+    input wire [125:0] id_exe_bus_in,
+    output wire [74:0] exe_mem_bus_out
 );
-
-reg [ID_EXE_BUS-1:0] id_exe_bus_r;
+reg [125:0] id_exe_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        id_exe_bus_r <= {ID_EXE_BUS{1'b0}};
+        id_exe_bus_r <= {126{1'b0}};
     end else begin
         id_exe_bus_r <= id_exe_bus_in;
     end 
@@ -18,10 +16,11 @@ wire [31:0] op1_data;
 wire [31:0] op2_data;
 wire [4:0] rd_out;
 wire rd_wen;
-wire [17:0] exe_fun;
+wire [18:0] exe_fun;
 wire mem_we;
 wire mem_re;
 wire [2:0] wb_sel;
+wire [31:0] exe_pc;
 assign {
     op1_data,
     op2_data,
@@ -30,10 +29,11 @@ assign {
     exe_fun,    
     mem_we,
     mem_re,
-    wb_sel
+    wb_sel,
+    exe_pc
 } = id_exe_bus_r;
 
-wire ALU_ADD = inst_lw;
+wire ALU_ADD;
 wire ALU_SUB;
 wire ALU_AND;
 wire ALU_OR ;
@@ -66,7 +66,8 @@ assign exe_mem_bus_out = {
     rd_wen,
     mem_we,
     mem_re,
-    wb_sel
+    wb_sel,
+    exe_pc
 };
 
 endmodule
