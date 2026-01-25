@@ -3,7 +3,8 @@ module id_stage (
     input wire rst_n,
     input wire [37:0] wb_data_bus,
     input wire [63:0] if_id_bus_in,
-    output wire [125:0] id_exe_bus_out,
+    output wire [174:0] id_exe_bus_out,
+    output wire [32:0] id_if_br_bus,
     //debug
     output [31:0] regs_out [0:31]
 );
@@ -31,6 +32,12 @@ wire [18:0] exe_fun;
 wire mem_we;
 wire mem_re;
 wire [2:0] wb_sel;
+wire [31:0] rs2_data;
+wire [31:0] mem_wb_data;
+wire [31:0] branch_target;
+assign mem_wb_data = rs2_data;
+wire [3:0] csr_cmd;
+wire [11:0] csr_addr;
 decoder_control u_decoder_control (
     .clk(clk),
     .rst_n(rst_n),
@@ -47,8 +54,31 @@ decoder_control u_decoder_control (
     .mem_we(mem_we),
     .mem_re(mem_re),
     .wb_sel(wb_sel),
-    .regs_out(regs_out)
+    .rs2_data(rs2_data),
+    .regs_out(regs_out),
+    .branch_target(branch_target),
+    .csr_cmd(csr_cmd),
+    .csr_addr(csr_addr)
 );
+
+wire BR_BEQ;
+wire BR_BNE;
+wire BR_BLT;
+wire BR_BLTU;
+wire BR_BGE;
+wire BR_BGEU;
+assign {
+    BR_BEQ, BR_BNE, BR_BGE, BR_BGEU, BR_BLT, BR_BLTU
+} = exe_fun[8:3];
+wire br_flag = (BR_BEQ  && (op1_data == op2_data)) ||
+                   (BR_BNE  && (op1_data != op2_data)) ||
+                   (BR_BLT  && ($signed(op1_data) < $signed(op2_data))) ||
+                   (BR_BLTU && (op1_data < op2_data)) ||
+                   (BR_BGE  && !($signed(op1_data) < $signed(op2_data))) ||
+                   (BR_BGEU && !(op1_data < op2_data));
+assign id_if_br_bus = {br_flag, branch_target};
+
+wire jmp_flag = wb_sel[1];
 
 assign id_exe_bus_out = {
     op1_data,
@@ -59,7 +89,11 @@ assign id_exe_bus_out = {
     mem_we,
     mem_re,
     wb_sel,
-    id_pc
+    id_pc,
+    mem_wb_data,
+    jmp_flag,
+    csr_cmd,
+    csr_addr
 };
 
 

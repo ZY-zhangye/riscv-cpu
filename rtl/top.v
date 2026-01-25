@@ -16,11 +16,9 @@ module top(
     output wire [3:0]  debug_wb_rf_wen,
     output wire [4:0]  debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata,
-    output [31:0] regs_out [0:31]
+    output [31:0] regs_out [0:31],
+    output [31:0] csr_out [0:4095]
 );
-    // Debug signals from WB stage
-    assign data_wdata = 32'b0; // For now, we do not write data memory
-    assign data_waddr = 32'b0; // For now, we do not write data memory
 
     // IF Stage
     wire [63:0] if_id_bus;
@@ -29,27 +27,33 @@ module top(
         .rst_n      (rst_n),
         .inst_in    (inst_in),
         .pc_out     (pc_out),
-        .if_id_bus_out (if_id_bus)
+        .if_id_bus_out (if_id_bus),
+        .id_if_br_bus  (id_if_br_bus),
+        .exe_if_jmp_bus (exe_if_jmp_bus)
     );
 
     // ID Stage
-    wire [125:0] id_exe_bus;
+    wire [174:0] id_exe_bus;
+    wire [32:0] id_if_br_bus;
     id_stage u_id_stage  (
         .clk            (clk),
         .rst_n          (rst_n),
         .wb_data_bus    (wb_data_bus), // To be connected
         .if_id_bus_in   (if_id_bus),
         .id_exe_bus_out (id_exe_bus),
-        .regs_out       (regs_out)
+        .regs_out       (regs_out),
+        .id_if_br_bus   (id_if_br_bus)
     );
 
     //EXE Stage
-    wire [74:0] exe_mem_bus;
+    wire [154:0] exe_mem_bus;
+    wire [32:0] exe_if_jmp_bus;
     exe_stage u_exe_stage  (
         .clk            (clk),
         .rst_n          (rst_n),
         .id_exe_bus_in  (id_exe_bus),
-        .exe_mem_bus_out(exe_mem_bus)
+        .exe_mem_bus_out(exe_mem_bus),
+        .exe_if_jmp_bus (exe_if_jmp_bus)
     );
 
     //MEM Stage
@@ -62,7 +66,10 @@ module top(
         .mem_we         (data_we),
         .mem_re         (data_re),
         .mem_rd_addr    (data_raddr),
-        .mem_rd_data    (data_rdata)
+        .mem_rd_data    (data_rdata),
+        .mem_wb_data    (data_wdata),
+        .mem_wb_addr    (data_waddr),
+        .csr_out        (csr_out)
     );
 
     //WB Stage

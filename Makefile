@@ -19,7 +19,7 @@ EXEC := $(OBJ_DIR)/Vtop
 
 # 1. 语法检查
 lint:
-	verilator --lint-only --Wall $(RTL_SRCS)
+	verilator --lint-only --Wall  $(RTL_SRCS)
 	@echo "Linting completed."
 
 # 2. 仿真编译并运行
@@ -38,6 +38,6 @@ clean:
 	rm -rf $(OBJ_DIR) $(VCD)
 # 6. 语法检查（忽略未使用信号警告）
 lint-w:
-	verilator --lint-only --Wall -Wno-UNUSEDSIGNAL ./rtl/*.v
+	verilator --lint-only --Wall -Wno-UNUSEDSIGNAL --unroll-count 4096 ./rtl/*.v
 	@echo "Linting completed with UNUSED SIGNAL warnings ignored."
 .PHONY: lint lint-w sim wave clean
