@@ -20,21 +20,34 @@ module top(
     output [31:0] csr_out [0:4095]
 );
 
-    // IF Stage
+    
     wire [63:0] if_id_bus;
+    wire stall_flag_internal;
+    wire [174:0] id_exe_bus;
+    wire [33:0] exe_if_jmp_bus;
+    wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
+    wire ecall_flag;
+    wire [154:0] exe_mem_bus;
+    wire [5:0] exe_id_data_bus;
+    wire [69:0] mem_wb_bus;
+    wire [37:0] mem_wb_regfile;
+    wire [31:0] csr_ecall;
+    wire [37:0] wb_data_bus;
+    // IF Stage
     if_stage u_if_stage  (
         .clk        (clk),
         .rst_n      (rst_n),
         .inst_in    (inst_in),
         .pc_out     (pc_out),
         .if_id_bus_out (if_id_bus),
-        .id_if_br_bus  (id_if_br_bus),
-        .exe_if_jmp_bus (exe_if_jmp_bus)
+        //.id_if_br_bus  (id_if_br_bus),
+        .exe_if_jmp_bus (exe_if_jmp_bus),
+        .stall_flag     (stall_flag_internal),
+        .ecall_flag     (ecall_flag),
+        .csr_ecall      (csr_ecall)
     );
 
     // ID Stage
-    wire [174:0] id_exe_bus;
-    wire [32:0] id_if_br_bus;
     id_stage u_id_stage  (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -42,22 +55,24 @@ module top(
         .if_id_bus_in   (if_id_bus),
         .id_exe_bus_out (id_exe_bus),
         .regs_out       (regs_out),
-        .id_if_br_bus   (id_if_br_bus)
+        .br_jmp_flag    (br_jmp_flag),
+        .mem_wb_regfile (mem_wb_regfile),
+        .exe_id_data_bus (exe_id_data_bus),
+        .stall_flag     (stall_flag_internal),
+        .ecall_flag     (ecall_flag)
     );
 
     //EXE Stage
-    wire [154:0] exe_mem_bus;
-    wire [32:0] exe_if_jmp_bus;
     exe_stage u_exe_stage  (
         .clk            (clk),
         .rst_n          (rst_n),
         .id_exe_bus_in  (id_exe_bus),
         .exe_mem_bus_out(exe_mem_bus),
-        .exe_if_jmp_bus (exe_if_jmp_bus)
+        .exe_if_jmp_bus (exe_if_jmp_bus),
+        .exe_id_data_bus(exe_id_data_bus)
     );
 
     //MEM Stage
-    wire [69:0] mem_wb_bus;
     mem_stage u_mem_stage  (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -69,11 +84,12 @@ module top(
         .mem_rd_data    (data_rdata),
         .mem_wb_data    (data_wdata),
         .mem_wb_addr    (data_waddr),
-        .csr_out        (csr_out)
+        .csr_out        (csr_out),
+        .mem_wb_regfile (mem_wb_regfile),
+        .csr_ecall      (csr_ecall)
     );
 
     //WB Stage
-    wire [37:0] wb_data_bus;
     wb_stage u_wb_stage  (
         .clk            (clk),
         .rst_n          (rst_n),

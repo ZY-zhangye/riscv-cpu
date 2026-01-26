@@ -9,6 +9,8 @@ module mem_stage(
     input wire [31:0] mem_rd_data,
     output wire [31:0] mem_wb_data,
     output wire [31:0] mem_wb_addr,
+    output wire [37:0] mem_wb_regfile,
+    output wire [31:0] csr_ecall,
     output wire [31:0] csr_out [0:4095]
 );
 
@@ -43,6 +45,7 @@ assign {
     op1_data
 } = exe_mem_bus_r;
 
+
 assign mem_rd_addr = alu_result;
 assign mem_wb_addr = alu_result;
 assign mem_wb_data = wb_mem_data;
@@ -51,6 +54,7 @@ assign wb_data = (wb_sel == 3'b000) ? alu_result :
                  (wb_sel == 3'b100) ? mem_rd_data :
                  (wb_sel == 3'b010) ? mem_pc + 32'd4 :
                  32'b0;
+assign mem_wb_regfile = {rd_out, rd_wen,wb_data};
 
 assign mem_wb_bus_out = {
     rd_out,
@@ -58,16 +62,12 @@ assign mem_wb_bus_out = {
     wb_data,
     mem_pc
 };
-wire [11:0] csr_addr_r;
 wire [31:0] csr_data_r;
 wire csr_we;
 wire [31:0] csr_data_w;
-wire [11:0] csr_addr_w;
-assign csr_addr_r = csr_addr;
 assign csr_we = |csr_cmd;
-assign csr_addr_w = csr_addr;
 assign csr_data_w = (csr_cmd == 4'b1000) ? 32'h11 : // CSRE
-                    (csr_cmd == 4'b0100) ? (csr_data_r & op1_data) : // CSRW
+                    (csr_cmd == 4'b0100) ? op1_data : // CSRW
                     (csr_cmd == 4'b0010) ? (csr_data_r | op1_data) :               // CSRS
                     (csr_cmd == 4'b0001) ? (csr_data_r & ~op1_data) :             // CSRRC
                     32'b0;
@@ -80,7 +80,8 @@ regfile_csr u_regfile_csr (
     .csr_addr_w (csr_addr),
     .csr_data_w (csr_data_w),
     .csr_we     (csr_we),
-    .csr_out    (csr_out)
+    .csr_out    (csr_out),
+    .csr_ecall  (csr_ecall)
 );
 
 endmodule

@@ -11,6 +11,8 @@ module regfile (
     //debug ports
     output [31:0] regs_out [0:31]
 );
+
+    reg [31:0] regs [0:31] /* verilator public */;
     genvar i;
     generate
         for (i = 0; i < 32; i = i + 1) begin : gen_debug_regs
@@ -18,7 +20,6 @@ module regfile (
         end
     endgenerate
 
-    reg [31:0] regs [0:31] /* verilator public */;
 
     // Read ports
     assign rs1_data = (rs1_addr != 0) ? regs[rs1_addr] : 32'b0;

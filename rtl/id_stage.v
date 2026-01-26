@@ -4,21 +4,30 @@ module id_stage (
     input wire [37:0] wb_data_bus,
     input wire [63:0] if_id_bus_in,
     output wire [174:0] id_exe_bus_out,
-    output wire [32:0] id_if_br_bus,
+    input wire br_jmp_flag,
+    input wire [37:0] mem_wb_regfile,
+    input wire [5:0] exe_id_data_bus,
+    output wire stall_flag,
+    output wire ecall_flag,
+    //output wire [32:0] id_if_br_bus,
     //debug
     output [31:0] regs_out [0:31]
 );
 reg [63:0] if_id_bus_r;
+wire [31:0] nop_inst = 32'b00000000000000000000000000110011; // ADD x0, x0, x0
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         if_id_bus_r <= {64{1'b0}};
     end else begin
-        if_id_bus_r <= if_id_bus_in;
+        if_id_bus_r <=if_id_bus_in;
     end
 end
+wire [63:0] if_id_bus_d = (stall_flag) ? {nop_inst, if_id_bus_r[31:0]} :
+                          (br_jmp_flag) ? {nop_inst, if_id_bus_r[31:0]} :
+                          if_id_bus_r;
 wire [31:0] id_pc;
 wire [31:0] id_inst;
-assign {id_inst, id_pc} = if_id_bus_r;
+assign {id_inst, id_pc} = if_id_bus_d;
 wire [4:0] wb_addr;
 wire wb_we;
 wire [31:0] wb_data;
@@ -34,7 +43,7 @@ wire mem_re;
 wire [2:0] wb_sel;
 wire [31:0] rs2_data;
 wire [31:0] mem_wb_data;
-wire [31:0] branch_target;
+//wire [31:0] branch_target;
 assign mem_wb_data = rs2_data;
 wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
@@ -56,12 +65,16 @@ decoder_control u_decoder_control (
     .wb_sel(wb_sel),
     .rs2_data(rs2_data),
     .regs_out(regs_out),
-    .branch_target(branch_target),
+    //.branch_target(branch_target),
     .csr_cmd(csr_cmd),
-    .csr_addr(csr_addr)
+    .csr_addr(csr_addr),
+    .mem_wb_regfile(mem_wb_regfile),
+    .exe_id_data_bus(exe_id_data_bus),
+    .stall_flag(stall_flag),
+    .ecall_flag(ecall_flag)
 );
 
-wire BR_BEQ;
+/*wire BR_BEQ;
 wire BR_BNE;
 wire BR_BLT;
 wire BR_BLTU;
@@ -75,8 +88,8 @@ wire br_flag = (BR_BEQ  && (op1_data == op2_data)) ||
                    (BR_BLT  && ($signed(op1_data) < $signed(op2_data))) ||
                    (BR_BLTU && (op1_data < op2_data)) ||
                    (BR_BGE  && !($signed(op1_data) < $signed(op2_data))) ||
-                   (BR_BGEU && !(op1_data < op2_data));
-assign id_if_br_bus = {br_flag, branch_target};
+                   (BR_BGEU && !(op1_data < op2_data));*/
+//assign id_if_br_bus = {br_flag, branch_target};
 
 wire jmp_flag = wb_sel[1];
 

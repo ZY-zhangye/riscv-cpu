@@ -4,6 +4,7 @@ module regfile_csr (
     // CSR read port
     input wire [11:0] csr_addr_r,
     output wire [31:0] csr_data_r,
+    output wire [31:0] csr_ecall,
     // CSR write port
     input wire [11:0] csr_addr_w,
     input wire [31:0] csr_data_w,
@@ -17,11 +18,10 @@ module regfile_csr (
     // CSR write operation
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            /*integer i;
+            integer i;
             for (i = 0; i < 4096; i = i + 1) begin
                 csr_array[i] = 32'b0;
-            end*/
-            csr_array <= '{default: 32'b0}; 
+            end
         end else if (csr_we) begin
             csr_array[csr_addr_w] <= csr_data_w;
         end
@@ -37,4 +37,7 @@ module regfile_csr (
             assign csr_out[j] = csr_array[j];
         end
     endgenerate
+
+    assign csr_ecall = csr_array[12'h305];
+
 endmodule

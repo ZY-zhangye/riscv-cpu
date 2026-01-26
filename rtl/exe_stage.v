@@ -3,7 +3,8 @@ module exe_stage(
     input wire rst_n,
     input wire [174:0] id_exe_bus_in,
     output wire [154:0] exe_mem_bus_out,
-    output wire [32:0] exe_if_jmp_bus
+    output wire [33:0] exe_if_jmp_bus,
+    output wire [5:0] exe_id_data_bus
 );
 reg [174:0] id_exe_bus_r;
 always @(posedge clk or negedge rst_n) begin
@@ -42,6 +43,8 @@ assign {
     csr_addr
 } = id_exe_bus_r;
 
+assign exe_id_data_bus = {rd_out, rd_wen};
+
 wire ALU_ADD;
 wire ALU_SUB;
 wire ALU_AND;
@@ -67,6 +70,7 @@ assign {
     ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
     ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X
 } = exe_fun;
+wire ALU_B = ALU_BEQ || ALU_BNE || ALU_BGE || ALU_BGEU || ALU_BLT || ALU_BLTU;
 wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
                          ALU_SUB ? (op1_data - op2_data) :
                          ALU_AND ? (op1_data & op2_data) : 
@@ -81,7 +85,7 @@ wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
                          ALU_COPY1? op1_data :
                          32'b0;     
 
-assign exe_if_jmp_bus = {jmp_flag, alu_result};
+assign exe_if_jmp_bus = {jmp_flag, alu_result, ALU_B};
 
 assign exe_mem_bus_out = {
     alu_result,
