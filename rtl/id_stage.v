@@ -18,11 +18,13 @@ wire [31:0] nop_inst = 32'b00000000000000000000000000110011; // ADD x0, x0, x0
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         if_id_bus_r <= {64{1'b0}};
+    end else if (stall_flag) begin
+        if_id_bus_r <= if_id_bus_r; // 保持不变
     end else begin
         if_id_bus_r <=if_id_bus_in;
     end
 end
-wire [63:0] if_id_bus_d = (stall_flag) ? {nop_inst, if_id_bus_r[31:0]} :
+wire [63:0] if_id_bus_d = //(stall_flag) ? {nop_inst, if_id_bus_r[31:0]} :
                           (br_jmp_flag) ? {nop_inst, if_id_bus_r[31:0]} :
                           if_id_bus_r;
 wire [31:0] id_pc;

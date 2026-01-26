@@ -54,7 +54,7 @@ end
 
 // 加载内存文件
 initial begin
-    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32ui-p-sw.hex", mem);
+    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-sw.hex", mem);
     $dumpfile("wave.vcd");     // 生成vcd波形文件
     $dumpvars(0, tb_top);      // 记录所有变量
     $display("Starting simulation...");
