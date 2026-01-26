@@ -10,7 +10,7 @@ module decoder_control (
     output wire [31:0] op2_data,
     output wire [4:0] rd_out,
     output wire rd_wen,
-    output wire [18:0] exe_fun,
+    output wire [19:0] exe_fun,
     output wire mem_we,
     output wire mem_re,
     output wire [2:0] wb_sel,
@@ -97,15 +97,15 @@ wire inst_ecall= (opcode == 7'b1110011) && (funct3 == 3'b000) && (funct7 == 7'b0
 
 //输出译码内容
 assign ecall_flag = inst_ecall;
-assign stall_flag = (((exe_id_data_bus[4:0] == rs1) && exe_id_data_bus[5]) ||
-                    ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0);
+assign stall_flag = (((exe_id_data_bus[5:1] == rs1) && exe_id_data_bus[0]) ||
+                    ((exe_id_data_bus[5:1] == rs2) && exe_id_data_bus[0])) && (exe_id_data_bus[5:1] != 5'b0);
 wire [31:0] rs1_data;
 wire [31:0] rs1_data_raw = (wb_we && (wb_addr == rs1)) ? wb_data :
                            (mem_wb_we && (mem_wb_addr == rs1)) ? mem_wb_data :
-                           op1_data;
+                           rs1_data;
 wire [31:0] rs2_data_raw = (wb_we && (wb_addr == rs2)) ? wb_data :
                            (mem_wb_we && (mem_wb_addr == rs2)) ? mem_wb_data :
-                           op2_data;
+                           rs2_data;
 wire OP1_RS1 = inst_lw || inst_sw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori
              || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu || inst_slti || inst_sltiu
              || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc;
@@ -133,7 +133,8 @@ assign rd_out = rd;
 assign rd_wen = inst_lw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu 
                 || inst_slti || inst_sltiu || inst_jal || inst_jalr || inst_lui || inst_auipc || inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
 
-wire ALU_ADD = inst_lw || inst_sw || inst_add || inst_addi || inst_jal || inst_lui || inst_auipc;
+wire ALU_ADD = inst_lw || inst_sw || inst_add  || inst_jal || inst_lui || inst_auipc;
+wire ALU_ADDI = inst_addi;
 wire ALU_SUB = inst_sub;
 wire ALU_AND = inst_and || inst_andi;
 wire ALU_OR  = inst_or || inst_ori;
@@ -152,7 +153,7 @@ wire ALU_BLTU= inst_bltu && (rs1_data_raw < rs2_data_raw);
 wire ALU_JALR= inst_jalr;
 wire ALU_COPY1= inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
 wire ALU_X = inst_ecall;
-assign exe_fun = {ALU_ADD, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
+assign exe_fun = {ALU_ADD, ALU_ADDI, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
                   ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
                   ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
                   ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X};

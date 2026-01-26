@@ -17,6 +17,7 @@ wire [31:0] debug_wb_rf_wdata;
 wire [31:0] regs_out [0:31];
 wire [31:0] csr_out [0:4095];
 reg [31:0] data_rdata;
+wire [33:0] debug_exe_if_jmp_bus;
 
 top u_top(
     .clk(clk),
@@ -34,6 +35,7 @@ top u_top(
     .debug_wb_rf_wnum(debug_wb_rf_wnum),
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
     .regs_out(regs_out),
+    .debug_exe_if_jmp_bus(debug_exe_if_jmp_bus),
     .csr_out(csr_out)
 );
 
@@ -88,6 +90,7 @@ always @(posedge clk) begin
         $display("wb_rf_wnum: %h", debug_wb_rf_wnum);
         $display("wb_rf_wdata: %08h", debug_wb_rf_wdata);
         $display("gp: %08h", regs_out[3]);
+        $display("brjmp_bus: %034b", debug_exe_if_jmp_bus);
         $display("------------------------");
     end
 end
@@ -100,7 +103,7 @@ always @(posedge clk) begin
         $finish;
     end    
 end
-always @(posedge clk) begin
+initial begin
     #25000;
     $display("Simulation timeout.");
     $finish;

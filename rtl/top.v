@@ -16,14 +16,16 @@ module top(
     output wire [3:0]  debug_wb_rf_wen,
     output wire [4:0]  debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata,
+    output wire [33:0] debug_exe_if_jmp_bus,
     output [31:0] regs_out [0:31],
     output [31:0] csr_out [0:4095]
 );
 
+
     
     wire [63:0] if_id_bus;
     wire stall_flag_internal;
-    wire [174:0] id_exe_bus;
+    wire [175:0] id_exe_bus;
     wire [33:0] exe_if_jmp_bus;
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
@@ -33,6 +35,10 @@ module top(
     wire [37:0] mem_wb_regfile;
     wire [31:0] csr_ecall;
     wire [37:0] wb_data_bus;
+
+    //debug
+    assign debug_exe_if_jmp_bus = exe_if_jmp_bus;
+
     // IF Stage
     if_stage u_if_stage  (
         .clk        (clk),

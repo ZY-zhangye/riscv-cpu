@@ -1,15 +1,15 @@
 module exe_stage(
     input wire clk,
     input wire rst_n,
-    input wire [174:0] id_exe_bus_in,
+    input wire [175:0] id_exe_bus_in,
     output wire [154:0] exe_mem_bus_out,
     output wire [33:0] exe_if_jmp_bus,
     output wire [5:0] exe_id_data_bus
 );
-reg [174:0] id_exe_bus_r;
+reg [175:0] id_exe_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        id_exe_bus_r <= {175{1'b0}};
+        id_exe_bus_r <= {176{1'b0}};
     end else begin
         id_exe_bus_r <= id_exe_bus_in;
     end 
@@ -18,7 +18,7 @@ wire [31:0] op1_data;
 wire [31:0] op2_data;
 wire [4:0] rd_out;
 wire rd_wen;
-wire [18:0] exe_fun;
+wire [19:0] exe_fun;
 wire mem_we;
 wire mem_re;
 wire [2:0] wb_sel;
@@ -64,14 +64,16 @@ wire ALU_BLTU;
 wire ALU_JALR;
 wire ALU_COPY1;
 wire ALU_X;
+wire ALU_ADDI;
 assign {
-    ALU_ADD, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
+    ALU_ADD, ALU_ADDI, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
     ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
     ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
     ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X
 } = exe_fun;
 wire ALU_B = ALU_BEQ || ALU_BNE || ALU_BGE || ALU_BGEU || ALU_BLT || ALU_BLTU;
 wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
+                         ALU_ADDI ? ($signed(op1_data) + $signed(op2_data)) :
                          ALU_SUB ? (op1_data - op2_data) :
                          ALU_AND ? (op1_data & op2_data) : 
                          ALU_OR  ? (op1_data | op2_data) :

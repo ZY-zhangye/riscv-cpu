@@ -3,7 +3,7 @@ module id_stage (
     input wire rst_n,
     input wire [37:0] wb_data_bus,
     input wire [63:0] if_id_bus_in,
-    output wire [174:0] id_exe_bus_out,
+    output wire [175:0] id_exe_bus_out,
     input wire br_jmp_flag,
     input wire [37:0] mem_wb_regfile,
     input wire [5:0] exe_id_data_bus,
@@ -37,7 +37,7 @@ wire [31:0] op1_data;
 wire [31:0] op2_data;
 wire [4:0] rd_out;
 wire rd_wen;
-wire [18:0] exe_fun;
+wire [19:0] exe_fun;
 wire mem_we;
 wire mem_re;
 wire [2:0] wb_sel;
