@@ -6,7 +6,7 @@ module id_stage (
     output wire [175:0] id_exe_bus_out,
     input wire br_jmp_flag,
     input wire [37:0] mem_wb_regfile,
-    input wire [5:0] exe_id_data_bus,
+    input wire [37:0] exe_id_data_bus,
     output wire stall_flag,
     output wire ecall_flag,
     //output wire [32:0] id_if_br_bus,
@@ -19,7 +19,7 @@ always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         if_id_bus_r <= {64{1'b0}};
     end else if (stall_flag) begin
-        if_id_bus_r <= if_id_bus_r; // 保持不变
+        if_id_bus_r <= {nop_inst, if_id_bus_in[31:0]};
     end else begin
         if_id_bus_r <=if_id_bus_in;
     end
@@ -65,7 +65,7 @@ decoder_control u_decoder_control (
     .mem_we(mem_we),
     .mem_re(mem_re),
     .wb_sel(wb_sel),
-    .rs2_data(rs2_data),
+    .rs2_data_raw(rs2_data),
     .regs_out(regs_out),
     //.branch_target(branch_target),
     .csr_cmd(csr_cmd),

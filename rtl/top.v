@@ -30,7 +30,7 @@ module top(
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
     wire [154:0] exe_mem_bus;
-    wire [5:0] exe_id_data_bus;
+    wire [37:0] exe_id_data_bus;
     wire [69:0] mem_wb_bus;
     wire [37:0] mem_wb_regfile;
     wire [31:0] csr_ecall;

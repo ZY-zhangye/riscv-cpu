@@ -24,7 +24,7 @@ module if_stage (
     assign seq_pc = fs_pc + 4;
     assign next_pc = (br_flag | jmp_flag) ? jmp_target :
                      ecall_flag ? csr_ecall :
-                     stall_flag ? fs_pc :
+                    // stall_flag ? fs_pc :
                      seq_pc;
     assign fs_inst = {inst_in[7:0], inst_in[15:8], inst_in[23:16], inst_in[31:24]}; // 小端转大端
     assign pc_out = next_pc;
@@ -32,6 +32,8 @@ module if_stage (
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             fs_pc <= 32'hffff_fffc; // -4，确保第一个pc_out为0
+        end else if (stall_flag) begin
+            fs_pc <= fs_pc;
         end else begin
             fs_pc <= next_pc;
         end

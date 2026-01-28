@@ -40,6 +40,7 @@ top u_top(
 );
 
 reg [31:0] mem [0:3000];
+reg [31:0] data_mem [0:3000];
 
 // 时钟生成
 initial clk = 0;
@@ -67,17 +68,25 @@ always @(posedge clk) begin
         data_rdata = 32'b0;
     end else begin
         inst_in = mem[pc_out[13:2]];
-        if (data_re)
-            data_rdata = mem[data_raddr[13:2]];
-        else
-            data_rdata = 32'b0;
     end
 end
 
-// 数据写入回写仿真
+// 数据存储器读写
 always @(posedge clk) begin
-    if (rst_n && data_we)
-        mem[data_waddr[13:2]] <= data_wdata;
+    if (data_we) begin
+        data_mem[data_waddr[13:2]] <= data_wdata;
+        $display("Data Write: Addr=%08h Data=%08h", data_waddr, data_wdata);
+    end
+    if (data_re) begin
+        $display("Data Read: Addr=%08h Data=%08h", data_raddr, data_mem[data_raddr[13:2]]);
+    end
+end
+always @(*) begin
+    if (data_re) begin
+        data_rdata = data_mem[data_raddr[13:2]];
+    end else begin
+        data_rdata = 32'b0;
+    end
 end
 
 // 打印调试信息
@@ -90,7 +99,6 @@ always @(posedge clk) begin
         $display("wb_rf_wnum: %h", debug_wb_rf_wnum);
         $display("wb_rf_wdata: %08h", debug_wb_rf_wdata);
         $display("gp: %08h", regs_out[3]);
-        $display("brjmp_bus: %034b", debug_exe_if_jmp_bus);
         $display("------------------------");
     end
 end
@@ -99,14 +107,18 @@ end
 always @(posedge clk) begin
     if (rst_n && pc_out == 32'h00000044) begin
         $display("Simulation finished.");
-        #100;
+        if (regs_out[3] == 32'h00000001) begin
+            $display("Test passed.");
+        end else begin
+            $display("Test failed. Expected 1 in x10, got %08h", regs_out[10]);
+        end
         $finish;
     end    
 end
 initial begin
     #25000;
     $display("Simulation timeout.");
-    $finish;
+    $stop;
 end
 
 endmodule
