@@ -1,27 +1,45 @@
 module mem_stage(
     input wire clk,
     input wire rst_n,
-    input wire [154:0] exe_mem_bus_in,
+    input wire [186:0] exe_mem_bus_in,
     output wire [69:0] mem_wb_bus_out,
     output wire mem_we,
-    output wire mem_re,
-    output wire [31:0] mem_rd_addr,
-    input wire [31:0] mem_rd_data,
+    //output wire mem_re,
+    //output wire [31:0] mem_rd_addr,
+    //input wire [31:0] mem_rd_data,
     output wire [31:0] mem_wb_data,
     output wire [31:0] mem_wb_addr,
     output wire [37:0] mem_wb_regfile,
     output wire [31:0] csr_ecall,
-    output wire [31:0] csr_out [0:4095]
+    input wire ws_allowin,
+    output wire ms_allowin,
+    input wire es_to_ms_valid,
+    output wire ms_to_ws_valid,
+    input wire [11:0] csr_raddr,
+    input wire [31:0] csr_rdata,
+    output wire [31:0] csr_out [0:4095],
+    output wire [11:0] debug_csr_waddr,
+    output wire [31:0] debug_csr_wdata,
+    output wire debug_csr_we
 );
-
-reg [154:0] exe_mem_bus_r;
+wire ms_ready_go = 1'b1;
+assign ms_allowin = !es_to_ms_valid || ms_ready_go && ws_allowin;
+assign ms_to_ws_valid = es_to_ms_valid && ms_ready_go;
+reg ms_valid;
+reg [186:0] exe_mem_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
-        exe_mem_bus_r <= {155{1'b0}};
-    end else begin
+        ms_valid <= 1'b0;
+    end else if (ms_allowin) begin
+        ms_valid <= es_to_ms_valid;
+    end
+    if (!rst_n) begin
+        exe_mem_bus_r <= {187{1'b0}};
+    end else if (ms_allowin && es_to_ms_valid) begin
         exe_mem_bus_r <= exe_mem_bus_in;
     end 
 end
+wire mem_re;
 wire [31:0] alu_result;
 wire [4:0] rd_out;
 wire rd_wen;
@@ -31,6 +49,7 @@ wire [31:0] wb_mem_data;
 wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
 wire [31:0] op1_data;
+wire [31:0] mem_rd_data;
 assign {
     alu_result,
     rd_out,
@@ -42,11 +61,12 @@ assign {
     wb_mem_data,
     csr_cmd,
     csr_addr,
-    op1_data
+    op1_data,
+    mem_rd_data
 } = exe_mem_bus_r;
 
 
-assign mem_rd_addr = alu_result;
+//assign mem_rd_addr = alu_result;
 assign mem_wb_addr = alu_result;
 assign mem_wb_data = wb_mem_data;
 wire [31:0] wb_data;
@@ -62,21 +82,22 @@ assign mem_wb_bus_out = {
     wb_data,
     mem_pc
 };
-wire [31:0] csr_data_r;
 wire csr_we;
 wire [31:0] csr_data_w;
 assign csr_we = |csr_cmd;
 assign csr_data_w = (csr_cmd == 4'b1000) ? 32'h11 : // CSRE
                     (csr_cmd == 4'b0100) ? op1_data : // CSRW
-                    (csr_cmd == 4'b0010) ? (csr_data_r | op1_data) :               // CSRS
-                    (csr_cmd == 4'b0001) ? (csr_data_r & ~op1_data) :             // CSRRC
+                    (csr_cmd == 4'b0010) ? (csr_rdata | op1_data) :               // CSRS
+                    (csr_cmd == 4'b0001) ? (csr_rdata & ~op1_data) :             // CSRRC
                     32'b0;
-
+assign debug_csr_we   = csr_we;
+assign debug_csr_waddr= csr_addr;
+assign debug_csr_wdata= csr_data_w;
 regfile_csr u_regfile_csr (
     .clk        (clk),
     .rst_n      (rst_n),
-    .csr_addr_r (csr_addr),
-    .csr_data_r (csr_data_r),
+    .csr_addr_r (csr_raddr),
+    .csr_data_r (csr_rdata),
     .csr_addr_w (csr_addr),
     .csr_data_w (csr_data_w),
     .csr_we     (csr_we),

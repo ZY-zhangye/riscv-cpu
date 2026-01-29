@@ -19,6 +19,8 @@ module decoder_control (
     input wire [37:0] exe_id_data_bus,
     output wire stall_flag,
     output wire ecall_flag,
+    input wire ds_allowin,
+    input wire [11:0] csr_raddr,
     //output wire [31:0] branch_target,
     output wire [3:0] csr_cmd,
     output wire [11:0] csr_addr,
@@ -96,25 +98,44 @@ wire inst_ecall= (opcode == 7'b1110011) && (funct3 == 3'b000) && (funct7 == 7'b0
 
 
 //输出译码内容
+wire CSR = inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
+reg prev_inst_lw;
+reg CSR_prev;
+always @ (posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        prev_inst_lw <= 1'b0;
+        CSR_prev <= 1'b0;
+    end else if (ds_allowin) begin
+        prev_inst_lw <= inst_lw;
+        CSR_prev <= CSR;
+    end else begin
+        prev_inst_lw <= 1'b0;
+        CSR_prev <= 1'b0;
+    end
+end
 wire [31:0] rs2_data;
 assign ecall_flag = inst_ecall;
-assign stall_flag = /*(((exe_id_data_bus[5:1] == rs1) && exe_id_data_bus[0]) ||
-                    ((exe_id_data_bus[5:1] == rs2) && exe_id_data_bus[0])) && (exe_id_data_bus[5:1] != 5'b0);*/ 0;
+assign stall_flag = ((((exe_id_data_bus[4:0] == rs1) && exe_id_data_bus[5]) ||
+                    ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0) && prev_inst_lw)/* || (CSR && CSR_prev && (csr_raddr == csr_addr))*/;
 wire [31:0] rs1_data;
-wire [31:0] rs1_data_raw = (exe_id_data_bus[4:0] == rs1 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
+wire [31:0] rs1_data_raw = (rs1 == 5'b0) ? 32'b0 :
+                           ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
+                           (exe_id_data_bus[4:0] == rs1 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
                            (mem_wb_we && (mem_wb_addr == rs1)) ? mem_wb_data :
                            (wb_we && (wb_addr == rs1)) ? wb_data :
                            rs1_data;
-assign rs2_data_raw = (exe_id_data_bus[4:0] == rs2 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
-                           (mem_wb_we && (mem_wb_addr == rs2)) ? mem_wb_data :
-                           (wb_we && (wb_addr == rs2)) ? wb_data :
-                           rs2_data;
+assign rs2_data_raw = (rs2 == 5'b0) ? 32'b0 :
+                      ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
+                      (exe_id_data_bus[4:0] == rs2 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
+                      (mem_wb_we && (mem_wb_addr == rs2)) ? mem_wb_data :
+                      (wb_we && (wb_addr == rs2)) ? wb_data :
+                      rs2_data;
 wire OP1_RS1 = inst_lw || inst_sw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori
              || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu || inst_slti || inst_sltiu
              || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc;
 wire OP1_PC  = inst_jal || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
 wire OP1_IMZ = inst_csrrwi || inst_csrrsi || inst_csrrci;
-wire OP2_IMI = inst_lw || inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu;
+wire OP2_IMI = inst_lw || inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu || inst_jalr;
 wire OP2_IMS = inst_sw;
 wire OP2_IMJ = inst_jal;
 wire OP2_IMB = inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;

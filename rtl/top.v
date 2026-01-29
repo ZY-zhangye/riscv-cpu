@@ -18,7 +18,10 @@ module top(
     output wire [31:0] debug_wb_rf_wdata,
     output wire [33:0] debug_exe_if_jmp_bus,
     output [31:0] regs_out [0:31],
-    output [31:0] csr_out [0:4095]
+    output [31:0] csr_out [0:4095],
+    output wire [31:0] debug_csr_wdata,
+    output wire [11:0] debug_csr_waddr,
+    output wire        debug_csr_we
 );
 
 
@@ -29,12 +32,23 @@ module top(
     wire [33:0] exe_if_jmp_bus;
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
-    wire [154:0] exe_mem_bus;
+    wire [186:0] exe_mem_bus;
     wire [37:0] exe_id_data_bus;
     wire [69:0] mem_wb_bus;
     wire [37:0] mem_wb_regfile;
     wire [31:0] csr_ecall;
     wire [37:0] wb_data_bus;
+    wire         ds_allowin;
+    wire         es_allowin;
+    wire         ms_allowin;
+    wire         ws_allowin;
+    wire         fs_to_ds_valid;
+    wire         ds_to_es_valid;
+    wire         es_to_ms_valid;
+    wire         ms_to_ws_valid;
+    wire [11:0] csr_raddr;
+    wire [31:0] csr_rdata;
+    
 
     //debug
     assign debug_exe_if_jmp_bus = exe_if_jmp_bus;
@@ -50,7 +64,9 @@ module top(
         .exe_if_jmp_bus (exe_if_jmp_bus),
         .stall_flag     (stall_flag_internal),
         .ecall_flag     (ecall_flag),
-        .csr_ecall      (csr_ecall)
+        .csr_ecall      (csr_ecall),
+        .ds_allowin     (ds_allowin),
+        .fs_to_ds_valid (fs_to_ds_valid)
     );
 
     // ID Stage
@@ -65,7 +81,12 @@ module top(
         .mem_wb_regfile (mem_wb_regfile),
         .exe_id_data_bus (exe_id_data_bus),
         .stall_flag     (stall_flag_internal),
-        .ecall_flag     (ecall_flag)
+        .ecall_flag     (ecall_flag),
+        .ds_allowin     (ds_allowin),
+        .fs_to_ds_valid (fs_to_ds_valid),
+        .ds_to_es_valid (ds_to_es_valid),
+        .es_allowin     (es_allowin),
+        .csr_raddr      (csr_raddr)
     );
 
     //EXE Stage
@@ -75,7 +96,16 @@ module top(
         .id_exe_bus_in  (id_exe_bus),
         .exe_mem_bus_out(exe_mem_bus),
         .exe_if_jmp_bus (exe_if_jmp_bus),
-        .exe_id_data_bus(exe_id_data_bus)
+        .exe_id_data_bus(exe_id_data_bus),
+        .mem_rd_addr    (data_raddr),
+        .mem_re         (data_re),
+        .mem_rd_data    (data_rdata),
+        .ms_allowin     (ms_allowin),
+        .es_allowin     (es_allowin),
+        .ds_to_es_valid (ds_to_es_valid),
+        .es_to_ms_valid (es_to_ms_valid),
+        .csr_raddr      (csr_raddr),
+        .csr_rdata      (csr_rdata)
     );
 
     //MEM Stage
@@ -85,14 +115,20 @@ module top(
         .exe_mem_bus_in (exe_mem_bus),
         .mem_wb_bus_out (mem_wb_bus),
         .mem_we         (data_we),
-        .mem_re         (data_re),
-        .mem_rd_addr    (data_raddr),
-        .mem_rd_data    (data_rdata),
         .mem_wb_data    (data_wdata),
         .mem_wb_addr    (data_waddr),
         .csr_out        (csr_out),
         .mem_wb_regfile (mem_wb_regfile),
-        .csr_ecall      (csr_ecall)
+        .csr_ecall      (csr_ecall),
+        .ws_allowin     (ws_allowin),
+        .ms_allowin     (ms_allowin),
+        .es_to_ms_valid (es_to_ms_valid),
+        .ms_to_ws_valid (ms_to_ws_valid),
+        .debug_csr_waddr(debug_csr_waddr),
+        .debug_csr_wdata(debug_csr_wdata),
+        .debug_csr_we   (debug_csr_we),
+        .csr_raddr      (csr_raddr),
+        .csr_rdata      (csr_rdata)
     );
 
     //WB Stage
@@ -104,7 +140,9 @@ module top(
         .debug_wb_pc       (debug_wb_pc),
         .debug_wb_rf_wen   (debug_wb_rf_wen),
         .debug_wb_rf_wnum  (debug_wb_rf_wnum),
-        .debug_wb_rf_wdata (debug_wb_rf_wdata)
+        .debug_wb_rf_wdata (debug_wb_rf_wdata),
+        .ws_allowin        (ws_allowin),
+        .ms_to_ws_valid    (ms_to_ws_valid)
     );
 
 endmodule

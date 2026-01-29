@@ -18,6 +18,9 @@ wire [31:0] regs_out [0:31];
 wire [31:0] csr_out [0:4095];
 reg [31:0] data_rdata;
 wire [33:0] debug_exe_if_jmp_bus;
+wire [31:0] debug_csr_wdata;
+wire [11:0] debug_csr_waddr;
+wire        debug_csr_we;
 
 top u_top(
     .clk(clk),
@@ -36,7 +39,10 @@ top u_top(
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
     .regs_out(regs_out),
     .debug_exe_if_jmp_bus(debug_exe_if_jmp_bus),
-    .csr_out(csr_out)
+    .csr_out(csr_out),
+    .debug_csr_wdata(debug_csr_wdata),
+    .debug_csr_waddr(debug_csr_waddr),
+    .debug_csr_we(debug_csr_we)
 );
 
 reg [31:0] mem [0:3000];
@@ -54,8 +60,16 @@ initial begin
 end
 
 // 加载内存文件
+/*# 定义【标准整数运算指令集】数组 - RV32I 基础指令全集
+UI_INSTS=(sw lw add addi sub and andi or ori xor xori 
+          sll srl sra slli srli srai slt slti sltu sltiu 
+          beq bne blt bge bltu bgeu jal jalr lui auipc)
+# 定义【特殊系统指令集】数组 - 包含特权指令/系统调用指令
+MI_INSTS=(csr scall)*/
+
 initial begin
-    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-sw.hex", mem);
+    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-lw.hex", mem);
+    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-lw.hex", data_mem);
     $dumpfile("wave.vcd");     // 生成vcd波形文件
     $dumpvars(0, tb_top);      // 记录所有变量
     $display("Starting simulation...");
@@ -65,7 +79,6 @@ end
 always @(posedge clk) begin
     if (!rst_n) begin
         inst_in = 32'b0;
-        data_rdata = 32'b0;
     end else begin
         inst_in = mem[pc_out[13:2]];
     end
@@ -81,13 +94,15 @@ always @(posedge clk) begin
         $display("Data Read: Addr=%08h Data=%08h", data_raddr, data_mem[data_raddr[13:2]]);
     end
 end
+reg [31:0] data_rdata_r;
 always @(*) begin
     if (data_re) begin
-        data_rdata = data_mem[data_raddr[13:2]];
+        data_rdata_r = data_mem[data_raddr[13:2]];
     end else begin
-        data_rdata = 32'b0;
+        data_rdata_r = 32'b0;
     end
 end
+assign data_rdata = {data_rdata_r[7:0], data_rdata_r[15:8], data_rdata_r[23:16], data_rdata_r[31:24]};
 
 // 打印调试信息
 always @(posedge clk) begin
@@ -99,6 +114,9 @@ always @(posedge clk) begin
         $display("wb_rf_wnum: %h", debug_wb_rf_wnum);
         $display("wb_rf_wdata: %08h", debug_wb_rf_wdata);
         $display("gp: %08h", regs_out[3]);
+        if (debug_csr_we) begin
+            $display("CSR Write: Addr=%03h Data=%08h", debug_csr_waddr, debug_csr_wdata);
+        end
         $display("------------------------");
     end
 end
@@ -112,7 +130,7 @@ always @(posedge clk) begin
         end else begin
             $display("Test failed. Expected 1 in x10, got %08h", regs_out[10]);
         end
-        $finish;
+        $stop;
     end    
 end
 initial begin
