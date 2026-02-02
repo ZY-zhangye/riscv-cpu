@@ -16,7 +16,7 @@ module exe_stage(
 );
 wire es_ready_go = 1'b1;
 reg es_valid;
-assign es_allowin = !ds_to_es_valid || es_ready_go && ms_allowin;
+assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
 reg [175:0] id_exe_bus_r;
 always @(posedge clk or negedge rst_n) begin

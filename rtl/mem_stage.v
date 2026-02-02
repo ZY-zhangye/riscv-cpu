@@ -16,10 +16,10 @@ module mem_stage(
     output wire [31:0] debug_csr_wdata,
     output wire debug_csr_we
 );
-wire ms_ready_go = 1'b1;
-assign ms_allowin = !es_to_ms_valid || ms_ready_go && ws_allowin;
-assign ms_to_ws_valid = es_to_ms_valid && ms_ready_go;
 reg ms_valid;
+wire ms_ready_go = 1'b1;
+assign ms_allowin = !ms_valid || ms_ready_go && ws_allowin;
+assign ms_to_ws_valid = es_to_ms_valid && ms_ready_go;
 reg [186:0] exe_mem_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
