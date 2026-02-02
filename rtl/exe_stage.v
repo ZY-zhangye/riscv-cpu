@@ -12,8 +12,7 @@ module exe_stage(
     output wire es_allowin,
     input wire ds_to_es_valid,
     output wire es_to_ms_valid,
-    output wire [11:0] csr_raddr,
-    input wire [31:0] csr_rdata
+    output wire [11:0] csr_raddr
 );
 wire es_ready_go = 1'b1;
 reg es_valid;

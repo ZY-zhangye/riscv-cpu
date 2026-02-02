@@ -4,9 +4,6 @@ module mem_stage(
     input wire [186:0] exe_mem_bus_in,
     output wire [69:0] mem_wb_bus_out,
     output wire mem_we,
-    //output wire mem_re,
-    //output wire [31:0] mem_rd_addr,
-    //input wire [31:0] mem_rd_data,
     output wire [31:0] mem_wb_data,
     output wire [31:0] mem_wb_addr,
     output wire [37:0] mem_wb_regfile,
@@ -15,9 +12,6 @@ module mem_stage(
     output wire ms_allowin,
     input wire es_to_ms_valid,
     output wire ms_to_ws_valid,
-    input wire [11:0] csr_raddr,
-    input wire [31:0] csr_rdata,
-    output wire [31:0] csr_out [0:4095],
     output wire [11:0] debug_csr_waddr,
     output wire [31:0] debug_csr_wdata,
     output wire debug_csr_we
@@ -65,7 +59,7 @@ assign {
     mem_rd_data
 } = exe_mem_bus_r;
 
-
+wire [31:0] csr_rdata;
 //assign mem_rd_addr = alu_result;
 assign mem_wb_addr = alu_result;
 assign mem_wb_data = wb_mem_data;
@@ -73,6 +67,7 @@ wire [31:0] wb_data;
 assign wb_data = (wb_sel == 3'b000) ? alu_result :
                  (wb_sel == 3'b100) ? mem_rd_data :
                  (wb_sel == 3'b010) ? mem_pc + 32'd4 :
+                 (wb_sel == 3'b001) ? csr_rdata:
                  32'b0;
 assign mem_wb_regfile = {rd_out, rd_wen,wb_data};
 
@@ -85,7 +80,7 @@ assign mem_wb_bus_out = {
 wire csr_we;
 wire [31:0] csr_data_w;
 assign csr_we = |csr_cmd;
-assign csr_data_w = (csr_cmd == 4'b1000) ? 32'h11 : // CSRE
+assign csr_data_w = (csr_cmd == 4'b1000) ? 32'h8 : // CSRE
                     (csr_cmd == 4'b0100) ? op1_data : // CSRW
                     (csr_cmd == 4'b0010) ? (csr_rdata | op1_data) :               // CSRS
                     (csr_cmd == 4'b0001) ? (csr_rdata & ~op1_data) :             // CSRRC
@@ -96,12 +91,11 @@ assign debug_csr_wdata= csr_data_w;
 regfile_csr u_regfile_csr (
     .clk        (clk),
     .rst_n      (rst_n),
-    .csr_addr_r (csr_raddr),
+    .csr_addr_r (csr_addr),
     .csr_data_r (csr_rdata),
     .csr_addr_w (csr_addr),
     .csr_data_w (csr_data_w),
     .csr_we     (csr_we),
-    .csr_out    (csr_out),
     .csr_ecall  (csr_ecall)
 );
 

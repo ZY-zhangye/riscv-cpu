@@ -21,11 +21,9 @@ module decoder_control (
     output wire ecall_flag,
     input wire ds_allowin,
     input wire [11:0] csr_raddr,
-    //output wire [31:0] branch_target,
     output wire [3:0] csr_cmd,
     output wire [11:0] csr_addr,
-    //debug
-    output [31:0] regs_out [0:31]
+    output wire [31:0] reg3
 );
 
 wire [31:0] mem_wb_data;
@@ -118,8 +116,8 @@ assign ecall_flag = inst_ecall;
 assign stall_flag = ((((exe_id_data_bus[4:0] == rs1) && exe_id_data_bus[5]) ||
                     ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0) && prev_inst_lw)/* || (CSR && CSR_prev && (csr_raddr == csr_addr))*/;
 wire [31:0] rs1_data;
-wire [31:0] rs1_data_raw = (rs1 == 5'b0) ? 32'b0 :
-                           ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
+wire [31:0] rs1_data_raw = ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
+                           (rs1 == 5'b0) ? 32'b0 :
                            (exe_id_data_bus[4:0] == rs1 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
                            (mem_wb_we && (mem_wb_addr == rs1)) ? mem_wb_data :
                            (wb_we && (wb_addr == rs1)) ? wb_data :
@@ -212,6 +210,6 @@ regfile u_regfile  (
     .rd_we(wb_we),
     .rs1_data(rs1_data),
     .rs2_data(rs2_data),
-    .regs_out(regs_out)
+    .reg3(reg3)
 );
 endmodule

@@ -14,9 +14,8 @@ wire [31:0] debug_wb_pc;
 wire [3:0]  debug_wb_rf_wen;
 wire [4:0]  debug_wb_rf_wnum;
 wire [31:0] debug_wb_rf_wdata;
-wire [31:0] regs_out [0:31];
-wire [31:0] csr_out [0:4095];
-reg [31:0] data_rdata;
+wire [31:0] reg3;
+wire [31:0] data_rdata;
 wire [33:0] debug_exe_if_jmp_bus;
 wire [31:0] debug_csr_wdata;
 wire [11:0] debug_csr_waddr;
@@ -37,9 +36,8 @@ top u_top(
     .debug_wb_rf_wen(debug_wb_rf_wen),
     .debug_wb_rf_wnum(debug_wb_rf_wnum),
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
-    .regs_out(regs_out),
     .debug_exe_if_jmp_bus(debug_exe_if_jmp_bus),
-    .csr_out(csr_out),
+    .reg3(reg3),
     .debug_csr_wdata(debug_csr_wdata),
     .debug_csr_waddr(debug_csr_waddr),
     .debug_csr_we(debug_csr_we)
@@ -68,8 +66,8 @@ UI_INSTS=(sw lw add addi sub and andi or ori xor xori
 MI_INSTS=(csr scall)*/
 
 initial begin
-    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-lw.hex", mem);
-    $readmemh("/home/zy-zhangye/riscv-cpu/hex/riscv-tests/rv32ui-p-lw.hex", data_mem);
+    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32-p-riscv.hex", mem);
+    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32-p-riscv.hex", data_mem);
     $dumpfile("wave.vcd");     // 生成vcd波形文件
     $dumpvars(0, tb_top);      // 记录所有变量
     $display("Starting simulation...");
@@ -97,12 +95,16 @@ end
 reg [31:0] data_rdata_r;
 always @(*) begin
     if (data_re) begin
-        data_rdata_r = data_mem[data_raddr[13:2]];
+        if ((data_waddr[13:2] == data_raddr[13:2] )&& data_we) begin
+            data_rdata_r = data_wdata; // 读写同地址时，返回写入数据
+        end else begin
+            data_rdata_r = data_mem[data_raddr[13:2]];
+        end
     end else begin
         data_rdata_r = 32'b0;
     end
 end
-assign data_rdata = {data_rdata_r[7:0], data_rdata_r[15:8], data_rdata_r[23:16], data_rdata_r[31:24]};
+assign data_rdata = data_rdata_r;
 
 // 打印调试信息
 always @(posedge clk) begin
@@ -113,7 +115,7 @@ always @(posedge clk) begin
         $display("wb_rf_wen: %h", debug_wb_rf_wen);
         $display("wb_rf_wnum: %h", debug_wb_rf_wnum);
         $display("wb_rf_wdata: %08h", debug_wb_rf_wdata);
-        $display("gp: %08h", regs_out[3]);
+        $display("gp: %08h", reg3);
         if (debug_csr_we) begin
             $display("CSR Write: Addr=%03h Data=%08h", debug_csr_waddr, debug_csr_wdata);
         end
@@ -125,10 +127,10 @@ end
 always @(posedge clk) begin
     if (rst_n && pc_out == 32'h00000044) begin
         $display("Simulation finished.");
-        if (regs_out[3] == 32'h00000001) begin
+        if (reg3 == 32'h00000001) begin
             $display("Test passed.");
         end else begin
-            $display("Test failed. Expected 1 in x10, got %08h", regs_out[10]);
+            $display("Test failed. Expected 1 in x10, got %08h", reg3);
         end
         $stop;
     end    

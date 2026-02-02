@@ -17,8 +17,7 @@ module top(
     output wire [4:0]  debug_wb_rf_wnum,
     output wire [31:0] debug_wb_rf_wdata,
     output wire [33:0] debug_exe_if_jmp_bus,
-    output [31:0] regs_out [0:31],
-    output [31:0] csr_out [0:4095],
+    output wire [31:0] reg3,
     output wire [31:0] debug_csr_wdata,
     output wire [11:0] debug_csr_waddr,
     output wire        debug_csr_we
@@ -47,7 +46,6 @@ module top(
     wire         es_to_ms_valid;
     wire         ms_to_ws_valid;
     wire [11:0] csr_raddr;
-    wire [31:0] csr_rdata;
     
 
     //debug
@@ -60,7 +58,6 @@ module top(
         .inst_in    (inst_in),
         .pc_out     (pc_out),
         .if_id_bus_out (if_id_bus),
-        //.id_if_br_bus  (id_if_br_bus),
         .exe_if_jmp_bus (exe_if_jmp_bus),
         .stall_flag     (stall_flag_internal),
         .ecall_flag     (ecall_flag),
@@ -76,7 +73,6 @@ module top(
         .wb_data_bus    (wb_data_bus), // To be connected
         .if_id_bus_in   (if_id_bus),
         .id_exe_bus_out (id_exe_bus),
-        .regs_out       (regs_out),
         .br_jmp_flag    (br_jmp_flag),
         .mem_wb_regfile (mem_wb_regfile),
         .exe_id_data_bus (exe_id_data_bus),
@@ -86,7 +82,8 @@ module top(
         .fs_to_ds_valid (fs_to_ds_valid),
         .ds_to_es_valid (ds_to_es_valid),
         .es_allowin     (es_allowin),
-        .csr_raddr      (csr_raddr)
+        .csr_raddr      (csr_raddr),
+        .reg3           (reg3)
     );
 
     //EXE Stage
@@ -104,8 +101,7 @@ module top(
         .es_allowin     (es_allowin),
         .ds_to_es_valid (ds_to_es_valid),
         .es_to_ms_valid (es_to_ms_valid),
-        .csr_raddr      (csr_raddr),
-        .csr_rdata      (csr_rdata)
+        .csr_raddr      (csr_raddr)
     );
 
     //MEM Stage
@@ -117,7 +113,6 @@ module top(
         .mem_we         (data_we),
         .mem_wb_data    (data_wdata),
         .mem_wb_addr    (data_waddr),
-        .csr_out        (csr_out),
         .mem_wb_regfile (mem_wb_regfile),
         .csr_ecall      (csr_ecall),
         .ws_allowin     (ws_allowin),
@@ -126,9 +121,7 @@ module top(
         .ms_to_ws_valid (ms_to_ws_valid),
         .debug_csr_waddr(debug_csr_waddr),
         .debug_csr_wdata(debug_csr_wdata),
-        .debug_csr_we   (debug_csr_we),
-        .csr_raddr      (csr_raddr),
-        .csr_rdata      (csr_rdata)
+        .debug_csr_we   (debug_csr_we)
     );
 
     //WB Stage

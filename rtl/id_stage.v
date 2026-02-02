@@ -14,9 +14,7 @@ module id_stage (
     output wire ds_allowin,
     output wire ds_to_es_valid,
     input wire [11:0] csr_raddr,
-    //output wire [32:0] id_if_br_bus,
-    //debug
-    output [31:0] regs_out [0:31]
+    output wire [31:0] reg3
 );
 reg [63:0] if_id_bus_r;
 wire [31:0] nop_inst = 32'b00000000000000000000000000110011;
@@ -37,8 +35,7 @@ always @(posedge clk or negedge rst_n) begin
         if_id_bus_r <=if_id_bus_in;
     end
 end
-wire [63:0] if_id_bus_d = //(stall_flag) ? {nop_inst, if_id_bus_r[31:0]} :
-                          (br_jmp_flag) ? {nop_inst, if_id_bus_r[31:0]} :
+wire [63:0] if_id_bus_d = (br_jmp_flag) ? {nop_inst, if_id_bus_r[31:0]} :
                           if_id_bus_r;
 wire [31:0] id_pc;
 wire [31:0] id_inst;
@@ -80,8 +77,6 @@ decoder_control u_decoder_control (
     .mem_re(mem_re),
     .wb_sel(wb_sel),
     .rs2_data_raw(rs2_data),
-    .regs_out(regs_out),
-    //.branch_target(branch_target),
     .csr_cmd(csr_cmd),
     .csr_addr(csr_addr),
     .mem_wb_regfile(mem_wb_regfile),
@@ -89,25 +84,10 @@ decoder_control u_decoder_control (
     .stall_flag(stall_flag),
     .ecall_flag(ecall_flag),
     .ds_allowin(ds_allowin),
+    .reg3(reg3),
     .csr_raddr(csr_raddr)
 );
 
-/*wire BR_BEQ;
-wire BR_BNE;
-wire BR_BLT;
-wire BR_BLTU;
-wire BR_BGE;
-wire BR_BGEU;
-assign {
-    BR_BEQ, BR_BNE, BR_BGE, BR_BGEU, BR_BLT, BR_BLTU
-} = exe_fun[8:3];
-wire br_flag = (BR_BEQ  && (op1_data == op2_data)) ||
-                   (BR_BNE  && (op1_data != op2_data)) ||
-                   (BR_BLT  && ($signed(op1_data) < $signed(op2_data))) ||
-                   (BR_BLTU && (op1_data < op2_data)) ||
-                   (BR_BGE  && !($signed(op1_data) < $signed(op2_data))) ||
-                   (BR_BGEU && !(op1_data < op2_data));*/
-//assign id_if_br_bus = {br_flag, branch_target};
 
 wire jmp_flag = wb_sel[1];
 

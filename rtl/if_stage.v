@@ -9,7 +9,6 @@ module if_stage (
     input wire [31:0] csr_ecall,
     input wire ds_allowin,
     output wire fs_to_ds_valid,
-    //input  wire [32:0] id_if_br_bus,
     input  wire [33:0] exe_if_jmp_bus
 );
     wire [31:0] seq_pc;
@@ -17,11 +16,8 @@ module if_stage (
     reg  [31:0] fs_pc;
     wire [31:0] fs_inst;
     wire        br_flag;
-   // wire [31:0] br_target;
     wire        jmp_flag; 
     wire [31:0] jmp_target;
-
-   // assign {br_flag, br_target} = id_if_br_bus;
     reg ecall_flag_reg;
     assign {jmp_flag, jmp_target, br_flag} = exe_if_jmp_bus;
     assign seq_pc = fs_pc + 4;
@@ -60,7 +56,7 @@ module if_stage (
         end
     end
     wire [31:0] nop_inst = 32'b00000000000000000000000000110011; // ADD x0, x0, x0
-    assign fs_inst = ecall_flag ? nop_inst : ds_allowin_reg ? {inst_in[7:0], inst_in[15:8], inst_in[23:16], inst_in[31:24]} : fs_inst_reg; // 小端转大端
+    assign fs_inst = ecall_flag ? nop_inst : ds_allowin_reg ? inst_in : fs_inst_reg; // 小端转大端
     assign if_id_bus_out = (br_flag | jmp_flag) ? {nop_inst, fs_pc} : {fs_inst, fs_pc};
 
 endmodule
