@@ -99,7 +99,7 @@ module top(
         .exe_id_data_bus(exe_id_data_bus),
         .mem_rd_addr    (data_raddr),
         .mem_re         (data_re),
-        .mem_rd_data    (bridge_rdata),  // 从bridge获取
+        .mem_rd_data    (data_rdata),  
         .ms_allowin     (ms_allowin),
         .es_allowin     (es_allowin),
         .ds_to_es_valid (ds_to_es_valid),
@@ -141,22 +141,6 @@ module top(
         .ms_to_ws_valid    (ms_to_ws_valid)
     );
 
-    // Bridge for data register access (up to 2KB)
-    bridge u_bridge (
-        .clk        (clk),
-        .rst_n      (rst_n),
-        .cpu_raddr  (data_raddr),
-        .cpu_re     (data_re),
-        .cpu_waddr  (data_waddr),
-        .cpu_we     (data_we),
-        .cpu_wdata  (data_wdata),
-        .cpu_rdata  (bridge_rdata),
-        .ext_raddr  (data_raddr),  // 连接到外部
-        .ext_re     (data_re),
-        .ext_rdata  (data_rdata),
-        .ext_waddr  (data_waddr),
-        .ext_we     (data_we),
-        .ext_wdata  (data_wdata)
-    );
+
 
 endmodule

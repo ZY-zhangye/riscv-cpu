@@ -14,7 +14,8 @@ module exe_stage(
     output wire es_to_ms_valid,
     output wire [11:0] csr_raddr
 );
-wire es_ready_go = 1'b1;
+wire es_ready_go;
+reg prev_mem_re;
 reg es_valid;
 assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
@@ -30,7 +31,13 @@ always @(posedge clk or negedge rst_n) begin
     end else if (ds_to_es_valid && es_allowin) begin
         id_exe_bus_r <= id_exe_bus_in;
     end 
+    if (!rst_n) begin
+        prev_mem_re <= 1'b0;
+    end else begin
+        prev_mem_re <= mem_re;
+    end
 end
+assign es_ready_go = (mem_re && !prev_mem_re) ? 1'b0 : 1'b1;
 wire [31:0] op1_data;
 wire [31:0] op2_data;
 wire signed [31:0] op1_data_s = op1_data;

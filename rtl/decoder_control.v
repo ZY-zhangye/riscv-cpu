@@ -50,45 +50,73 @@ wire [31:0] imm_u_sext = {imm_u, 12'b0};
 wire [31:0] imm_j_sext = {{11{imm_j[20]}}, imm_j};
 wire [31:0] imm_z_sext = {27'b0, imm_z};
 
-//指令定义
-wire inst_lw = (opcode == 7'b0000011) && (funct3 == 3'b010);
-wire inst_sw = (opcode == 7'b0100011) && (funct3 == 3'b010);
-wire inst_add = (opcode == 7'b0110011) && (funct3 == 3'b000) && (funct7 == 7'b0000000);
-wire inst_sub = (opcode == 7'b0110011) && (funct3 == 3'b000) && (funct7 == 7'b0100000);
-wire inst_addi= (opcode == 7'b0010011) && (funct3 == 3'b000);
-wire inst_and = (opcode == 7'b0110011) && (funct3 == 3'b111) && (funct7 == 7'b0000000);
-wire inst_or  = (opcode == 7'b0110011) && (funct3 == 3'b110) && (funct7 == 7'b0000000);
-wire inst_xor = (opcode == 7'b0110011) && (funct3 == 3'b100) && (funct7 == 7'b0000000);
-wire inst_andi= (opcode == 7'b0010011) && (funct3 == 3'b111);
-wire inst_ori = (opcode == 7'b0010011) && (funct3 == 3'b110);
-wire inst_xori= (opcode == 7'b0010011) && (funct3 == 3'b100);
-wire inst_sll = (opcode == 7'b0110011) && (funct3 == 3'b001) && (funct7 == 7'b0000000);
-wire inst_srl = (opcode == 7'b0110011) && (funct3 == 3'b101) && (funct7 == 7'b0000000);
-wire inst_sra = (opcode == 7'b0110011) && (funct3 == 3'b101) && (funct7 == 7'b0100000);
-wire inst_slli= (opcode == 7'b0010011) && (funct3 == 3'b001) && (funct7 == 7'b0000000);
-wire inst_srli= (opcode == 7'b0010011) && (funct3 == 3'b101) && (funct7 == 7'b0000000);
-wire inst_srai= (opcode == 7'b0010011) && (funct3 == 3'b101) && (funct7 == 7'b0100000);
-wire inst_slt = (opcode == 7'b0110011) && (funct3 == 3'b010) && (funct7 == 7'b0000000);
-wire inst_sltu= (opcode == 7'b0110011) && (funct3 == 3'b011) && (funct7 == 7'b0000000);
-wire inst_slti= (opcode == 7'b0010011) && (funct3 == 3'b010);
-wire inst_sltiu= (opcode == 7'b0010011) && (funct3 == 3'b011);
-wire inst_beq = (opcode == 7'b1100011) && (funct3 == 3'b000);
-wire inst_bne = (opcode == 7'b1100011) && (funct3 == 3'b001);
-wire inst_blt = (opcode == 7'b1100011) && (funct3 == 3'b100);
-wire inst_bge = (opcode == 7'b1100011) && (funct3 == 3'b101);
-wire inst_bltu= (opcode == 7'b1100011) && (funct3 == 3'b110);
-wire inst_bgeu= (opcode == 7'b1100011) && (funct3 == 3'b111);
-wire inst_jal = (opcode == 7'b1101111);
-wire inst_jalr= (opcode == 7'b1100111) && (funct3 == 3'b000);
-wire inst_lui = (opcode == 7'b0110111);
-wire inst_auipc= (opcode == 7'b0010111);
-wire inst_csrrw= (opcode == 7'b1110011) && (funct3 == 3'b001);
-wire inst_csrrs= (opcode == 7'b1110011) && (funct3 == 3'b010);
-wire inst_csrrc= (opcode == 7'b1110011) && (funct3 == 3'b011);
-wire inst_csrrwi= (opcode == 7'b1110011) && (funct3 == 3'b101);
-wire inst_csrrsi= (opcode == 7'b1110011) && (funct3 == 3'b110);
-wire inst_csrrci= (opcode == 7'b1110011) && (funct3 == 3'b111);
-wire inst_ecall= (opcode == 7'b1110011) && (funct3 == 3'b000) && (funct7 == 7'b0000000);
+//指令定义（独热码译码，复用比较信号）
+wire op_load   = (opcode == 7'b0000011);
+wire op_store  = (opcode == 7'b0100011);
+wire op_op     = (opcode == 7'b0110011);
+wire op_opimm  = (opcode == 7'b0010011);
+wire op_branch = (opcode == 7'b1100011);
+wire op_jal    = (opcode == 7'b1101111);
+wire op_jalr   = (opcode == 7'b1100111);
+wire op_lui    = (opcode == 7'b0110111);
+wire op_auipc  = (opcode == 7'b0010111);
+wire op_system = (opcode == 7'b1110011);
+
+wire f3_000 = (funct3 == 3'b000);
+wire f3_001 = (funct3 == 3'b001);
+wire f3_010 = (funct3 == 3'b010);
+wire f3_011 = (funct3 == 3'b011);
+wire f3_100 = (funct3 == 3'b100);
+wire f3_101 = (funct3 == 3'b101);
+wire f3_110 = (funct3 == 3'b110);
+wire f3_111 = (funct3 == 3'b111);
+
+wire f7_0000000 = (funct7 == 7'b0000000);
+wire f7_0100000 = (funct7 == 7'b0100000);
+
+wire inst_lw   = op_load  & f3_010;
+wire inst_sw   = op_store & f3_010;
+
+wire inst_add  = op_op    & f3_000 & f7_0000000;
+wire inst_sub  = op_op    & f3_000 & f7_0100000;
+wire inst_and  = op_op    & f3_111 & f7_0000000;
+wire inst_or   = op_op    & f3_110 & f7_0000000;
+wire inst_xor  = op_op    & f3_100 & f7_0000000;
+wire inst_sll  = op_op    & f3_001 & f7_0000000;
+wire inst_srl  = op_op    & f3_101 & f7_0000000;
+wire inst_sra  = op_op    & f3_101 & f7_0100000;
+wire inst_slt  = op_op    & f3_010 & f7_0000000;
+wire inst_sltu = op_op    & f3_011 & f7_0000000;
+
+wire inst_addi = op_opimm & f3_000;
+wire inst_andi = op_opimm & f3_111;
+wire inst_ori  = op_opimm & f3_110;
+wire inst_xori = op_opimm & f3_100;
+wire inst_slli = op_opimm & f3_001 & f7_0000000;
+wire inst_srli = op_opimm & f3_101 & f7_0000000;
+wire inst_srai = op_opimm & f3_101 & f7_0100000;
+wire inst_slti = op_opimm & f3_010;
+wire inst_sltiu= op_opimm & f3_011;
+
+wire inst_beq  = op_branch & f3_000;
+wire inst_bne  = op_branch & f3_001;
+wire inst_blt  = op_branch & f3_100;
+wire inst_bge  = op_branch & f3_101;
+wire inst_bltu = op_branch & f3_110;
+wire inst_bgeu = op_branch & f3_111;
+
+wire inst_jal  = op_jal;
+wire inst_jalr = op_jalr & f3_000;
+wire inst_lui  = op_lui;
+wire inst_auipc= op_auipc;
+
+wire inst_csrrw  = op_system & f3_001;
+wire inst_csrrs  = op_system & f3_010;
+wire inst_csrrc  = op_system & f3_011;
+wire inst_csrrwi = op_system & f3_101;
+wire inst_csrrsi = op_system & f3_110;
+wire inst_csrrci = op_system & f3_111;
+wire inst_ecall  = op_system & f3_000 & f7_0000000;
 
 
 
@@ -114,7 +142,7 @@ end
 wire [31:0] rs2_data;
 assign ecall_flag = inst_ecall;
 assign stall_flag = ((((exe_id_data_bus[4:0] == rs1) && exe_id_data_bus[5]) ||
-                    ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0) && prev_inst_lw)/* || (CSR && CSR_prev && (csr_raddr == csr_addr))*/;
+                    ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0) && prev_inst_lw);
 wire [31:0] rs1_data;
 wire [31:0] rs1_data_raw = ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
                            (rs1 == 5'b0) ? 32'b0 :

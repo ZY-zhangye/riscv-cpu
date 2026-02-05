@@ -17,7 +17,8 @@ module mem_stage(
     output wire debug_csr_we
 );
 reg ms_valid;
-wire ms_ready_go = 1'b1;
+reg prev_mem_we;
+wire ms_ready_go;
 assign ms_allowin = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = es_to_ms_valid && ms_ready_go;
 reg [186:0] exe_mem_bus_r;
@@ -32,7 +33,13 @@ always @(posedge clk or negedge rst_n) begin
     end else if (ms_allowin && es_to_ms_valid) begin
         exe_mem_bus_r <= exe_mem_bus_in;
     end 
+    if (!rst_n) begin
+        prev_mem_we <= 1'b0;
+    end else begin
+        prev_mem_we <= mem_we;
+    end
 end
+assign ms_ready_go = (mem_we && !prev_mem_we) ? 1'b0 : 1'b1;
 wire mem_re;
 wire [31:0] alu_result;
 wire [4:0] rd_out;
