@@ -3,7 +3,7 @@ module id_stage (
     input wire rst_n,
     input wire [37:0] wb_data_bus,
     input wire [63:0] if_id_bus_in,
-    output wire [175:0] id_exe_bus_out,
+    output wire [178:0] id_exe_bus_out,
     input wire br_jmp_flag,
     input wire [37:0] mem_wb_regfile,
     input wire [37:0] exe_id_data_bus,
@@ -59,6 +59,7 @@ wire [31:0] mem_wb_data;
 assign mem_wb_data = rs2_data;
 wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
+wire [2:0] mem_size;
 
 decoder_control u_decoder_control (
     .clk(clk),
@@ -75,6 +76,7 @@ decoder_control u_decoder_control (
     .exe_fun(exe_fun),
     .mem_we(mem_we),
     .mem_re(mem_re),
+    .mem_size(mem_size),
     .wb_sel(wb_sel),
     .rs2_data_raw(rs2_data),
     .csr_cmd(csr_cmd),
@@ -104,7 +106,8 @@ assign id_exe_bus_out = {
     mem_wb_data,
     jmp_flag,
     csr_cmd,
-    csr_addr
+    csr_addr,
+    mem_size
 };
 
 

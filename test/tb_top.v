@@ -10,6 +10,7 @@ wire data_re;
 wire [31:0] data_wdata;
 wire [31:0] data_waddr;
 wire data_we;
+wire [3:0] data_wstrb;
 wire [31:0] debug_wb_pc;
 wire [3:0]  debug_wb_rf_wen;
 wire [4:0]  debug_wb_rf_wnum;
@@ -31,6 +32,7 @@ top u_top(
     .data_re(data_re),
     .data_wdata(data_wdata),
     .data_waddr(data_waddr),
+    .data_wstrb(data_wstrb),
     .data_we(data_we),
     .debug_wb_pc(debug_wb_pc),
     .debug_wb_rf_wen(debug_wb_rf_wen),
@@ -61,7 +63,7 @@ end
 /*# 定义【标准整数运算指令集】数组 - RV32I 基础指令全集
 UI_INSTS=(sw lw add addi sub and andi or ori xor xori 
           sll srl sra slli srli srai slt slti sltu sltiu 
-          beq bne blt bge bltu bgeu jal jalr lui auipc)
+          beq bne blt bge bltu bgeu jal jalr lui auipc lh lhu sh sb lb lbu)
 # 定义【特殊系统指令集】数组 - 包含特权指令/系统调用指令
 MI_INSTS=(csr scall)*/
 
@@ -85,18 +87,28 @@ end
 // 数据存储器读写
 always @(posedge clk) begin
     if (data_we) begin
-        data_mem[data_waddr[13:2]] <= data_wdata;
-        $display("Data Write: Addr=%08h Data=%08h", data_waddr, data_wdata);
+        // 按data_wstrb写入对应字节
+        if (data_wstrb[0]) data_mem[data_waddr[13:2]][7:0]   <= data_wdata[7:0];
+        if (data_wstrb[1]) data_mem[data_waddr[13:2]][15:8]  <= data_wdata[15:8];
+        if (data_wstrb[2]) data_mem[data_waddr[13:2]][23:16] <= data_wdata[23:16];
+        if (data_wstrb[3]) data_mem[data_waddr[13:2]][31:24] <= data_wdata[31:24];
+        $display("Data Write: Addr=%08h Data=%08h Strb=%04b", data_waddr, data_wdata, data_wstrb);
     end
     if (data_re) begin
         $display("Data Read: Addr=%08h Data=%08h", data_raddr, data_mem[data_raddr[13:2]]);
     end
 end
 reg [31:0] data_rdata_r;
-always @(*) begin
+always @(posedge clk) begin
     if (data_re) begin
-        if ((data_waddr[13:2] == data_raddr[13:2] )&& data_we) begin
-            data_rdata_r = data_wdata; // 读写同地址时，返回写入数据
+        if ((data_waddr[13:2] == data_raddr[13:2]) && data_we) begin
+            // 按data_wstrb返回写入字节，其余字节返回原值
+            data_rdata_r = {
+                data_wstrb[3] ? data_wdata[31:24] : data_mem[data_raddr[13:2]][31:24],
+                data_wstrb[2] ? data_wdata[23:16] : data_mem[data_raddr[13:2]][23:16],
+                data_wstrb[1] ? data_wdata[15:8]  : data_mem[data_raddr[13:2]][15:8],
+                data_wstrb[0] ? data_wdata[7:0]   : data_mem[data_raddr[13:2]][7:0]
+            };
         end else begin
             data_rdata_r = data_mem[data_raddr[13:2]];
         end
@@ -104,7 +116,8 @@ always @(*) begin
         data_rdata_r = 32'b0;
     end
 end
-assign data_rdata = data_rdata_r;
+wire write_hazard = data_we && data_re && (data_waddr[13:2] == data_raddr[13:2]);
+assign data_rdata = /*write_hazard ? data_wdata : */data_rdata_r;
 
 // 打印调试信息
 always @(posedge clk) begin

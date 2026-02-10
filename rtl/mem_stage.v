@@ -1,11 +1,12 @@
 module mem_stage(
     input wire clk,
     input wire rst_n,
-    input wire [186:0] exe_mem_bus_in,
+    input wire [189:0] exe_mem_bus_in,
     output wire [69:0] mem_wb_bus_out,
     output wire mem_we,
     output wire [31:0] mem_wb_data,
     output wire [31:0] mem_wb_addr,
+    output wire [3:0] mem_wb_strb,
     output wire [37:0] mem_wb_regfile,
     output wire [31:0] csr_ecall,
     input wire ws_allowin,
@@ -21,7 +22,7 @@ reg prev_mem_we;
 wire ms_ready_go;
 assign ms_allowin = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = es_to_ms_valid && ms_ready_go;
-reg [186:0] exe_mem_bus_r;
+reg [189:0] exe_mem_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         ms_valid <= 1'b0;
@@ -29,7 +30,7 @@ always @(posedge clk or negedge rst_n) begin
         ms_valid <= es_to_ms_valid;
     end
     if (!rst_n) begin
-        exe_mem_bus_r <= {187{1'b0}};
+        exe_mem_bus_r <= {190{1'b0}};
     end else if (ms_allowin && es_to_ms_valid) begin
         exe_mem_bus_r <= exe_mem_bus_in;
     end 
@@ -51,6 +52,7 @@ wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
 wire [31:0] op1_data;
 wire [31:0] mem_rd_data;
+wire [2:0] mem_size;
 assign {
     alu_result,
     rd_out,
@@ -63,13 +65,24 @@ assign {
     csr_cmd,
     csr_addr,
     op1_data,
-    mem_rd_data
+    mem_rd_data,
+    mem_size
 } = exe_mem_bus_r;
 
 wire [31:0] csr_rdata;
 //assign mem_rd_addr = alu_result;
 assign mem_wb_addr = alu_result;
-assign mem_wb_data = wb_mem_data;
+assign mem_wb_data = (mem_size[0] && !mem_size[1]) ? {wb_mem_data[15:0], wb_mem_data[15:0]} : // 16位访存，数据复制到高16位
+                        (mem_size[0] && mem_size[1]) ? {wb_mem_data[7:0], wb_mem_data[7:0], wb_mem_data[7:0], wb_mem_data[7:0]} : // 8位访存，数据复制到所有字节
+                        wb_mem_data; // 32位访存
+// mem_wb_strb根据mem_size赋值
+// 修正字节序：原来低位/高位反了，导致低16位被写到高16位，低8位被写到高8位
+assign mem_wb_strb =
+    (!mem_we) ? 4'b0000 :
+    (mem_size[0] && mem_size[1]) ? (4'b0001 << mem_wb_addr[1:0]) : // 8位访存（字节次序反转）
+    (mem_size[0] && !mem_size[1]) ? (mem_wb_addr[1] ? 4'b1100 : 4'b0011) : // 16位访存（低/高半字交换）
+    (!mem_size[0]) ? 4'b1111 : // 32位访存
+    4'b0000;
 wire [31:0] wb_data;
 assign wb_data = (wb_sel == 3'b000) ? alu_result :
                  (wb_sel == 3'b100) ? mem_rd_data :

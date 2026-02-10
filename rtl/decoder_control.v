@@ -3,9 +3,9 @@ module decoder_control (
     input wire rst_n,
     input wire [31:0] pc_in,
     input wire [31:0] inst_in,
-    input wire [4:0] wb_addr /* verilator public */,
+    input wire [4:0] wb_addr,
     input wire wb_we,
-    input wire [31:0] wb_data /* verilator public */,
+    input wire [31:0] wb_data,
     output wire [31:0] op1_data,
     output wire [31:0] op2_data,
     output wire [4:0] rd_out,
@@ -13,6 +13,7 @@ module decoder_control (
     output wire [19:0] exe_fun,
     output wire mem_we,
     output wire mem_re,
+    output wire [2:0] mem_size,
     output wire [2:0] wb_sel,
     output wire [31:0] rs2_data_raw,
     input wire [37:0] mem_wb_regfile,
@@ -51,16 +52,22 @@ wire [31:0] imm_j_sext = {{11{imm_j[20]}}, imm_j};
 wire [31:0] imm_z_sext = {27'b0, imm_z};
 
 //指令定义（独热码译码，复用比较信号）
-wire op_load   = (opcode == 7'b0000011);
-wire op_store  = (opcode == 7'b0100011);
-wire op_op     = (opcode == 7'b0110011);
-wire op_opimm  = (opcode == 7'b0010011);
-wire op_branch = (opcode == 7'b1100011);
-wire op_jal    = (opcode == 7'b1101111);
-wire op_jalr   = (opcode == 7'b1100111);
-wire op_lui    = (opcode == 7'b0110111);
-wire op_auipc  = (opcode == 7'b0010111);
-wire op_system = (opcode == 7'b1110011);
+// opcode独热码生成
+reg [127:0] opcode_hot;
+always @(*) begin
+    opcode_hot = 128'b0;
+    opcode_hot[opcode] = 1'b1;
+end
+wire op_load   = opcode_hot[3];    // 0000011
+wire op_store  = opcode_hot[35];   // 0100011
+wire op_op     = opcode_hot[51];   // 0110011
+wire op_opimm  = opcode_hot[19];   // 0010011
+wire op_branch = opcode_hot[99];   // 1100011
+wire op_jal    = opcode_hot[111];  // 1101111
+wire op_jalr   = opcode_hot[103];  // 1100111
+wire op_lui    = opcode_hot[55];   // 0110111
+wire op_auipc  = opcode_hot[23];   // 0010111
+wire op_system = opcode_hot[115];  // 1110011
 
 wire f3_000 = (funct3 == 3'b000);
 wire f3_001 = (funct3 == 3'b001);
@@ -75,7 +82,13 @@ wire f7_0000000 = (funct7 == 7'b0000000);
 wire f7_0100000 = (funct7 == 7'b0100000);
 
 wire inst_lw   = op_load  & f3_010;
+wire inst_lb   = op_load  & f3_000;
+wire inst_lh   = op_load  & f3_001;
+wire inst_lbu  = op_load  & f3_100;
+wire inst_lhu  = op_load  & f3_101;
 wire inst_sw   = op_store & f3_010;
+wire inst_sb   = op_store & f3_000;
+wire inst_sh   = op_store & f3_001;
 
 wire inst_add  = op_op    & f3_000 & f7_0000000;
 wire inst_sub  = op_op    & f3_000 & f7_0100000;
@@ -126,17 +139,13 @@ wire inst_ecall  = op_system & f3_000 & f7_0000000;
 //输出译码内容
 wire CSR = inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
 reg prev_inst_lw;
-reg CSR_prev;
 always @ (posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         prev_inst_lw <= 1'b0;
-        CSR_prev <= 1'b0;
     end else if (ds_allowin) begin
-        prev_inst_lw <= inst_lw;
-        CSR_prev <= CSR;
+        prev_inst_lw <= inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu;
     end else begin
         prev_inst_lw <= 1'b0;
-        CSR_prev <= 1'b0;
     end
 end
 wire [31:0] rs2_data;
@@ -158,11 +167,11 @@ assign rs2_data_raw = (rs2 == 5'b0) ? 32'b0 :
                       rs2_data;
 wire OP1_RS1 = inst_lw || inst_sw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori
              || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu || inst_slti || inst_sltiu
-             || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc;
+             || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc || inst_lb || inst_lh || inst_lbu || inst_lhu || inst_sb || inst_sh;
 wire OP1_PC  = inst_jal || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
 wire OP1_IMZ = inst_csrrwi || inst_csrrsi || inst_csrrci;
-wire OP2_IMI = inst_lw || inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu || inst_jalr;
-wire OP2_IMS = inst_sw;
+wire OP2_IMI = inst_lw || inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu || inst_jalr || inst_lb || inst_lh || inst_lbu || inst_lhu;
+wire OP2_IMS = inst_sw || inst_sb || inst_sh;
 wire OP2_IMJ = inst_jal;
 wire OP2_IMB = inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
 wire OP2_IMU = inst_lui || inst_auipc;
@@ -181,9 +190,9 @@ assign op2_data = OP2_IMI ? imm_i_sext :
 
 assign rd_out = rd;
 assign rd_wen = inst_lw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu 
-                || inst_slti || inst_sltiu || inst_jal || inst_jalr || inst_lui || inst_auipc || inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
+                || inst_slti || inst_sltiu || inst_jal || inst_jalr || inst_lui || inst_auipc || inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci || inst_lb || inst_lh || inst_lbu || inst_lhu;
 
-wire ALU_ADD = inst_lw || inst_sw || inst_add  || inst_jal || inst_lui || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
+wire ALU_ADD = inst_lw || inst_sw || inst_add  || inst_jal || inst_lui || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu || inst_lb || inst_lh || inst_lbu || inst_lhu || inst_sh || inst_sb;
 wire ALU_ADDI = inst_addi;
 wire ALU_SUB = inst_sub;
 wire ALU_AND = inst_and || inst_andi;
@@ -207,15 +216,21 @@ assign exe_fun = {ALU_ADD, ALU_ADDI, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
                   ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
                   ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
                   ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X};
-assign mem_we = inst_sw;
-assign mem_re = inst_lw;
+assign mem_we = inst_sw || inst_sb || inst_sh;
+assign mem_re = inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu;
+// mem_size信号定义
+// 0: 非对齐访存（lb/lbu/lh/lhu/sb/sh为1，lw/sw为0）
+// 1: 1为8位，0为16位（lb/lbu/sb为1，lh/lhu/sh为0）
+// 2: 1为符号扩展，0为补0（lb/lh为1，lbu/lhu为0，写指令为0）
+assign mem_size[0] = inst_lb || inst_lbu || inst_lh || inst_lhu || inst_sb || inst_sh;
+assign mem_size[1] = inst_lb || inst_lbu || inst_sb;
+assign mem_size[2] = inst_lb || inst_lh;
 
-wire WB_SEL_MEM = inst_lw;
+
+wire WB_SEL_MEM = inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu;
 wire WB_SEL_PC  = inst_jal || inst_jalr;
 wire WB_SEL_CSR = inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
 assign wb_sel = {WB_SEL_MEM, WB_SEL_PC, WB_SEL_CSR};
-//assign branch_target = pc_in + imm_b_sext;
-
 wire CSR_E = inst_ecall;
 wire CSR_W = inst_csrrw || inst_csrrwi;
 wire CSR_S = inst_csrrs || inst_csrrsi;
@@ -241,3 +256,4 @@ regfile u_regfile  (
     .reg3(reg3)
 );
 endmodule
+

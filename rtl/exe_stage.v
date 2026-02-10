@@ -1,8 +1,8 @@
 module exe_stage(
     input wire clk,
     input wire rst_n,
-    input wire [175:0] id_exe_bus_in,
-    output wire [186:0] exe_mem_bus_out,
+    input wire [178:0] id_exe_bus_in,
+    output wire [189:0] exe_mem_bus_out,
     output wire [33:0] exe_if_jmp_bus,
     output wire [37:0] exe_id_data_bus,
     output wire [31:0] mem_rd_addr,
@@ -19,7 +19,7 @@ reg prev_mem_re;
 reg es_valid;
 assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
-reg [175:0] id_exe_bus_r;
+reg [178:0] id_exe_bus_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         es_valid <= 1'b0;
@@ -27,7 +27,7 @@ always @(posedge clk or negedge rst_n) begin
         es_valid <= ds_to_es_valid;
     end
     if (!rst_n) begin
-        id_exe_bus_r <= {176{1'b0}};
+        id_exe_bus_r <= {179{1'b0}};
     end else if (ds_to_es_valid && es_allowin) begin
         id_exe_bus_r <= id_exe_bus_in;
     end 
@@ -52,6 +52,7 @@ wire [31:0] wb_data;
 wire jmp_flag;
 wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
+wire [2:0] mem_size;
 assign {
     op1_data,
     op2_data,
@@ -65,7 +66,8 @@ assign {
     wb_data,
     jmp_flag,
     csr_cmd,
-    csr_addr
+    csr_addr,
+    mem_size
 } = id_exe_bus_r;
 
 
@@ -112,7 +114,21 @@ wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
                          32'b0;     
 
 wire [31:0] exe_id_data;
-assign exe_id_data = mem_re ? mem_rd_data : alu_result;
+wire [31:0] mem_rdata_ext;
+// 根据地址低两位选择字节/半字，再进行符号/零扩展
+wire [1:0] mem_offset = alu_result[1:0];
+wire [7:0] selected_byte = (mem_offset == 2'b00) ? mem_rd_data[7:0] :
+                           (mem_offset == 2'b01) ? mem_rd_data[15:8] :
+                           (mem_offset == 2'b10) ? mem_rd_data[23:16] : mem_rd_data[31:24];
+wire [15:0] selected_half = (mem_offset[1] == 1'b0) ? mem_rd_data[15:0] : mem_rd_data[31:16];
+
+assign mem_rdata_ext =
+    (!mem_re) ? 32'b0 :
+    (mem_size[0] && mem_size[1]) ? (mem_size[2] ? {{24{selected_byte[7]}}, selected_byte} : {24'b0, selected_byte}) : // byte
+    (mem_size[0] && !mem_size[1]) ? (mem_size[2] ? {{16{selected_half[15]}}, selected_half} : {16'b0, selected_half}) : // half
+    (!mem_size[0]) ? mem_rd_data : // word
+    32'b0;
+assign exe_id_data = (mem_re) ? mem_rdata_ext : alu_result;
 assign exe_if_jmp_bus = {jmp_flag, alu_result, ALU_B};
 assign exe_id_data_bus = {exe_id_data, rd_wen, rd_out};
 assign mem_rd_addr = alu_result;
@@ -130,7 +146,8 @@ assign exe_mem_bus_out = {
     csr_cmd,
     csr_addr,
     op1_data,
-    mem_rd_data
+    mem_rdata_ext,
+    mem_size
 };
 
 endmodule

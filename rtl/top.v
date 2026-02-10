@@ -10,6 +10,7 @@ module top(
     output wire data_re,
     output wire [31:0] data_wdata,
     output wire [31:0] data_waddr,
+    output wire [3:0] data_wstrb,
     output wire data_we,
     //调试接口
     output wire [31:0] debug_wb_pc,
@@ -27,11 +28,11 @@ module top(
     
     wire [63:0] if_id_bus;
     wire stall_flag_internal;
-    wire [175:0] id_exe_bus;
+    wire [178:0] id_exe_bus;
     wire [33:0] exe_if_jmp_bus;
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
-    wire [186:0] exe_mem_bus;
+    wire [189:0] exe_mem_bus;
     wire [37:0] exe_id_data_bus;
     wire [69:0] mem_wb_bus;
     wire [37:0] mem_wb_regfile;
@@ -116,6 +117,7 @@ module top(
         .mem_we         (data_we),
         .mem_wb_data    (data_wdata),
         .mem_wb_addr    (data_waddr),
+        .mem_wb_strb    (data_wstrb),
         .mem_wb_regfile (mem_wb_regfile),
         .csr_ecall      (csr_ecall),
         .ws_allowin     (ws_allowin),
