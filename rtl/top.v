@@ -38,15 +38,22 @@ module top(
     wire [37:0] mem_wb_regfile;
     wire [31:0] csr_ecall;
     wire [37:0] wb_data_bus;
-    wire         ds_allowin;
-    wire         es_allowin;
-    wire         ms_allowin;
-    wire         ws_allowin;
-    wire         fs_to_ds_valid;
-    wire         ds_to_es_valid;
-    wire         es_to_ms_valid;
-    wire         ms_to_ws_valid;
+    wire        ds_allowin;
+    wire        es_allowin;
+    wire        ms_allowin;
+    wire        ws_allowin;
+    wire        fs_to_ds_valid;
+    wire        ds_to_es_valid;
+    wire        es_to_ms_valid;
+    wire        ms_to_ws_valid;
     wire [11:0] csr_raddr;
+    wire [31:0] csr_mret;
+    wire        mret_flag;
+    wire [5:0] exception_code_fd;
+    wire [5:0] exception_code_de;
+    wire [5:0] exception_code_em;
+    wire       exception_flag;
+    wire [31:0] csr_rdata;
     
 
     // Bridge接口
@@ -65,9 +72,13 @@ module top(
         .exe_if_jmp_bus (exe_if_jmp_bus),
         .stall_flag     (stall_flag_internal),
         .ecall_flag     (ecall_flag),
+        .mret_flag      (mret_flag),
+        .exception_flag  (exception_flag),
+        .exception_code_fd (exception_code_fd),
         .csr_ecall      (csr_ecall),
         .ds_allowin     (ds_allowin),
-        .fs_to_ds_valid (fs_to_ds_valid)
+        .fs_to_ds_valid (fs_to_ds_valid),
+        .csr_mret       (csr_mret)
     );
 
     // ID Stage
@@ -82,11 +93,13 @@ module top(
         .exe_id_data_bus (exe_id_data_bus),
         .stall_flag     (stall_flag_internal),
         .ecall_flag     (ecall_flag),
+        .mret_flag      (mret_flag),
+        .exception_code_fd (exception_code_fd),
+        .exception_code_de (exception_code_de),
         .ds_allowin     (ds_allowin),
         .fs_to_ds_valid (fs_to_ds_valid),
         .ds_to_es_valid (ds_to_es_valid),
         .es_allowin     (es_allowin),
-        .csr_raddr      (csr_raddr),
         .reg3           (reg3)
     );
 
@@ -98,6 +111,8 @@ module top(
         .exe_mem_bus_out(exe_mem_bus),
         .exe_if_jmp_bus (exe_if_jmp_bus),
         .exe_id_data_bus(exe_id_data_bus),
+        .exception_code_de (exception_code_de),
+        .exception_code_em (exception_code_em),
         .mem_rd_addr    (data_raddr),
         .mem_re         (data_re),
         .mem_rd_data    (data_rdata),  
@@ -105,7 +120,8 @@ module top(
         .es_allowin     (es_allowin),
         .ds_to_es_valid (ds_to_es_valid),
         .es_to_ms_valid (es_to_ms_valid),
-        .csr_raddr      (csr_raddr)
+        .csr_raddr      (csr_raddr),
+        .csr_rdata      (csr_rdata)
     );
 
     //MEM Stage
@@ -120,13 +136,18 @@ module top(
         .mem_wb_strb    (data_wstrb),
         .mem_wb_regfile (mem_wb_regfile),
         .csr_ecall      (csr_ecall),
+        .exception_flag  (exception_flag),
         .ws_allowin     (ws_allowin),
         .ms_allowin     (ms_allowin),
         .es_to_ms_valid (es_to_ms_valid),
         .ms_to_ws_valid (ms_to_ws_valid),
         .debug_csr_waddr(debug_csr_waddr),
         .debug_csr_wdata(debug_csr_wdata),
-        .debug_csr_we   (debug_csr_we)
+        .debug_csr_we   (debug_csr_we),
+        .exception_code_em (exception_code_em),
+        .csr_mret       (csr_mret),
+        .csr_raddr      (csr_raddr),
+        .csr_rdata      (csr_rdata)
     );
 
     //WB Stage

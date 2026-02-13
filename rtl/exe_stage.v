@@ -12,7 +12,10 @@ module exe_stage(
     output wire es_allowin,
     input wire ds_to_es_valid,
     output wire es_to_ms_valid,
-    output wire [11:0] csr_raddr
+    output wire [11:0] csr_raddr,
+    input wire [31:0] csr_rdata,
+    input wire [5:0] exception_code_de,
+    output wire [5:0] exception_code_em
 );
 wire es_ready_go;
 reg prev_mem_re;
@@ -20,6 +23,7 @@ reg es_valid;
 assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
 reg [178:0] id_exe_bus_r;
+reg [5:0] exception_code_de_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
         es_valid <= 1'b0;
@@ -28,8 +32,10 @@ always @(posedge clk or negedge rst_n) begin
     end
     if (!rst_n) begin
         id_exe_bus_r <= {179{1'b0}};
+        exception_code_de_r <= 6'b0;
     end else if (ds_to_es_valid && es_allowin) begin
         id_exe_bus_r <= id_exe_bus_in;
+        exception_code_de_r <= exception_code_de;
     end 
     if (!rst_n) begin
         prev_mem_re <= 1'b0;
@@ -110,7 +116,7 @@ wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
                          ALU_SLT ? ($signed(op1_data_s) < $signed(op2_data_s) ? 32'd1 : 32'd0) :
                          ALU_SLTU? (op1_data < op2_data ? 32'd1 : 32'd0) :
                          ALU_JALR? ((op1_data + op2_data) & ~32'd1) :
-                         ALU_COPY1? op1_data :
+                         ALU_COPY1? csr_rdata :
                          32'b0;     
 
 wire [31:0] exe_id_data;
@@ -149,5 +155,9 @@ assign exe_mem_bus_out = {
     mem_rdata_ext,
     mem_size
 };
+
+
+// 异常处理：将ID阶段传来的异常代码传递到EXE阶段，并在EXE阶段根据需要进行修改（例如EBREAK指令）
+assign exception_code_em = exception_code_de_r; // 目前不修改，直接传递
 
 endmodule

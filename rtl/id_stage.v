@@ -7,16 +7,19 @@ module id_stage (
     input wire br_jmp_flag,
     input wire [37:0] mem_wb_regfile,
     input wire [37:0] exe_id_data_bus,
+    input wire [5:0] exception_code_fd,
+    output wire [5:0] exception_code_de,
     output wire stall_flag,
     output wire ecall_flag,
+    output wire mret_flag,
     input wire es_allowin,
     input wire fs_to_ds_valid,
     output wire ds_allowin,
     output wire ds_to_es_valid,
-    input wire [11:0] csr_raddr,
     output wire [31:0] reg3
 );
 reg [63:0] if_id_bus_r;
+reg [5:0] exception_code_fd_r;
 wire [31:0] nop_inst = 32'b00000000000000000000000000110011;
  // ADD x0, x0, x0
 reg        ds_valid   ;
@@ -31,8 +34,10 @@ always @(posedge clk or negedge rst_n) begin
     end
     if (!rst_n) begin
         if_id_bus_r <= {64{1'b0}};
+        exception_code_fd_r <= 6'b0;
     end else if (ds_allowin && fs_to_ds_valid) begin
         if_id_bus_r <=if_id_bus_in;
+        exception_code_fd_r <= exception_code_fd;
     end
 end
 wire [63:0] if_id_bus_d = (br_jmp_flag) ? {nop_inst, if_id_bus_r[31:0]} :
@@ -60,6 +65,7 @@ assign mem_wb_data = rs2_data;
 wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
 wire [2:0] mem_size;
+wire ebreak_flag;
 
 decoder_control u_decoder_control (
     .clk(clk),
@@ -85,9 +91,10 @@ decoder_control u_decoder_control (
     .exe_id_data_bus(exe_id_data_bus),
     .stall_flag(stall_flag),
     .ecall_flag(ecall_flag),
+    .ebreak_flag(ebreak_flag),
+    .mret_flag(mret_flag),
     .ds_allowin(ds_allowin),
-    .reg3(reg3),
-    .csr_raddr(csr_raddr)
+    .reg3(reg3)
 );
 
 
@@ -110,6 +117,13 @@ assign id_exe_bus_out = {
     mem_size
 };
 
+
+//中断和异常相关标识 共6位，足以表示所有异常类型 最高位标识出现异常或中断，低五位标识异常类型
+assign exception_code_de = exception_code_fd_r[5] ? exception_code_fd_r : 
+                           ebreak_flag ? 6'b100011 :
+                           ecall_flag  ? 6'b101011 : 
+                           mret_flag   ? 6'b011111 :
+                           6'b0;
 
 
 endmodule

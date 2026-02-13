@@ -6,9 +6,13 @@ module if_stage (
     output wire [63:0] if_id_bus_out,
     input wire stall_flag,
     input wire ecall_flag,
+    input wire mret_flag,
+    input wire exception_flag,
     input wire [31:0] csr_ecall,
+    input wire [31:0] csr_mret,
     input wire ds_allowin,
     output wire fs_to_ds_valid,
+    output wire [5:0] exception_code_fd,
     input  wire [33:0] exe_if_jmp_bus
 );
     wire [31:0] seq_pc;
@@ -21,9 +25,10 @@ module if_stage (
     reg ecall_flag_reg;
     assign {jmp_flag, jmp_target, br_flag} = exe_if_jmp_bus;
     assign seq_pc = fs_pc + 4;
-    assign next_pc = (br_flag | jmp_flag) ? jmp_target :
-                     ecall_flag ? csr_ecall :
-                     ecall_flag_reg ? fs_pc :
+    assign next_pc = (br_flag | jmp_flag)          ? jmp_target :
+                     ecall_flag                    ? csr_ecall :
+                     (mret_flag && exception_flag) ? csr_mret :
+                     ecall_flag_reg                ? fs_pc :
                      seq_pc;
     assign pc_out = next_pc;
 
@@ -40,7 +45,7 @@ module if_stage (
             ecall_flag_reg <= 1'b0;
         end else if (fs_allowin) begin
             fs_valid <= 1'b1;
-            ecall_flag_reg <= ecall_flag;
+            ecall_flag_reg <= ecall_flag || (mret_flag && exception_flag);
         end
         if (!rst_n) begin
             fs_pc <= 32'hffff_fffc; // -4，确保第一个pc_out为0
@@ -56,7 +61,10 @@ module if_stage (
         end
     end
     wire [31:0] nop_inst = 32'b00000000000000000000000000110011; // ADD x0, x0, x0
-    assign fs_inst = ecall_flag ? nop_inst : ds_allowin_reg ? inst_in : fs_inst_reg; // 小端转大端
+    assign fs_inst = (ecall_flag || (mret_flag && exception_flag)) ? nop_inst : ds_allowin_reg ? inst_in : fs_inst_reg; // 小端转大端
     assign if_id_bus_out = (br_flag | jmp_flag) ? {nop_inst, fs_pc} : {fs_inst, fs_pc};
+
+    //中断和异常相关标识 共6位，足以表示所有异常类型 最高位标识出现异常或中断，低五位标识异常类型
+    assign exception_code_fd = 6'b0; // 目前不处理异常和中断，暂时置0
 
 endmodule

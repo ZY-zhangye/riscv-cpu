@@ -5,10 +5,13 @@ module regfile_csr (
     input wire [11:0] csr_addr_r,
     output wire [31:0] csr_data_r,
     output wire [31:0] csr_ecall,
+    output wire [31:0] csr_mret,
+    output reg exception_flag,
     // CSR write port
     input wire [11:0] csr_addr_w,
     input wire [31:0] csr_data_w,
-    input wire csr_we
+    input wire csr_we,
+    input wire [5:0] exception_code
 );
     
     reg [31:0] mstatus;
@@ -58,33 +61,21 @@ module regfile_csr (
                 12'hF13: mimpid <= csr_data_w;
                 default: ; // do nothing
             endcase
+        end else begin
+            if (exception_code[5]) begin
+                // 处理异常：根据异常代码设置相关CSR寄存器
+                mepc <= csr_data_w; // 将引起异常的指令地址写入mepc
+                mcause <= {27'b0, exception_code[4:0]}; // 将异常代码写入mcause
+                mtval <= 32'b0; // 根据需要设置mtval，例如可以设置为引起异常的指令地址或数据
+            end else if (& exception_code[4:0]) begin
+                //mret指令
+                mstatus[3] <= mstatus[7];
+                mstatus[7] <= 1'b1; // 恢复到M模式
+            end
         end
     end
-    
-    // CSR read operation with write-through (combinational)
-    /*always @(*) begin
-        if (csr_we && (csr_addr_w == csr_addr_r)) begin
-            csr_data_r = csr_data_w;
-        end else begin
-            case (csr_addr_r)
-                12'h300: csr_data_r = mstatus;
-                12'h301: csr_data_r = misa;
-                12'h305: csr_data_r = mtvec;
-                12'h340: csr_data_r = mscratch;
-                12'h341: csr_data_r = mepc;
-                12'h342: csr_data_r = mcause;
-                12'hF14: csr_data_r = mhartid;
-                12'h304: csr_data_r = mie;
-                12'h344: csr_data_r = mip;
-                12'h343: csr_data_r = mtval;
-                12'hF11: csr_data_r = mvendorid;
-                12'hF12: csr_data_r = marchid;
-                12'hF13: csr_data_r = mimpid;
-                default: csr_data_r = 32'b0;
-            endcase
-        end
-    end*/
-    assign csr_data_r = (csr_addr_r == 12'h300) ? mstatus :
+    assign csr_data_r = (csr_addr_r == csr_addr_w && csr_we) ? csr_data_w : // 优先返回写入数据
+                        (csr_addr_r == 12'h300) ? mstatus :
                         (csr_addr_r == 12'h301) ? misa :
                         (csr_addr_r == 12'h305) ? mtvec :
                         (csr_addr_r == 12'h340) ? mscratch :
@@ -101,5 +92,15 @@ module regfile_csr (
     
 
     assign csr_ecall = mtvec;
+    assign csr_mret  = mepc;
+    always @(posedge clk or negedge rst_n) begin
+        if (!rst_n) begin
+            exception_flag <= 1'b0;
+        end else if (exception_code[5]) begin
+            exception_flag <= 1'b1;
+        end else if (& exception_code[4:0]) begin
+            exception_flag <= 1'b0; // mret指令清除异常标志
+        end
+    end
 
 endmodule

@@ -20,8 +20,9 @@ module decoder_control (
     input wire [37:0] exe_id_data_bus,
     output wire stall_flag,
     output wire ecall_flag,
+    output wire ebreak_flag,
+    output wire mret_flag,
     input wire ds_allowin,
-    input wire [11:0] csr_raddr,
     output wire [3:0] csr_cmd,
     output wire [11:0] csr_addr,
     output wire [31:0] reg3
@@ -80,6 +81,8 @@ wire f3_111 = (funct3 == 3'b111);
 
 wire f7_0000000 = (funct7 == 7'b0000000);
 wire f7_0100000 = (funct7 == 7'b0100000);
+wire f7_0001000 = (funct7 == 7'b0001000);
+wire f7_0011000 = (funct7 == 7'b0011000);
 
 wire inst_lw   = op_load  & f3_010;
 wire inst_lb   = op_load  & f3_000;
@@ -129,7 +132,10 @@ wire inst_csrrc  = op_system & f3_011;
 wire inst_csrrwi = op_system & f3_101;
 wire inst_csrrsi = op_system & f3_110;
 wire inst_csrrci = op_system & f3_111;
-wire inst_ecall  = op_system & f3_000 & f7_0000000;
+wire inst_ecall  = op_system & f3_000 & inst_in[25:20] == 6'b000000;
+wire inst_ebreak = op_system & f3_000 & inst_in[25:20] == 6'b000001;
+wire inst_mret   = op_system & f3_000 & f7_0011000;
+wire inst_wfi    = op_system & f3_000 & f7_0001000;
 
 
 
@@ -149,18 +155,18 @@ always @ (posedge clk or negedge rst_n) begin
     end
 end
 wire [31:0] rs2_data;
-assign ecall_flag = inst_ecall;
+assign ecall_flag = inst_ecall || inst_ebreak;
+assign ebreak_flag = inst_ebreak;
+assign mret_flag = inst_mret;
 assign stall_flag = ((((exe_id_data_bus[4:0] == rs1) && exe_id_data_bus[5]) ||
                     ((exe_id_data_bus[4:0] == rs2) && exe_id_data_bus[5])) && (exe_id_data_bus[4:0] != 5'b0) && prev_inst_lw);
 wire [31:0] rs1_data;
-wire [31:0] rs1_data_raw = ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
-                           (rs1 == 5'b0) ? 32'b0 :
+wire [31:0] rs1_data_raw = (rs1 == 5'b0) ? 32'b0 :
                            (exe_id_data_bus[4:0] == rs1 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
                            (mem_wb_we && (mem_wb_addr == rs1)) ? mem_wb_data :
                            (wb_we && (wb_addr == rs1)) ? wb_data :
                            rs1_data;
 assign rs2_data_raw = (rs2 == 5'b0) ? 32'b0 :
-                      ((csr_addr === csr_raddr) && CSR) ? exe_id_data_bus[37:6] :
                       (exe_id_data_bus[4:0] == rs2 && exe_id_data_bus[5] && (exe_id_data_bus[4:0] != 5'b0)) ? exe_id_data_bus[37:6] :
                       (mem_wb_we && (mem_wb_addr == rs2)) ? mem_wb_data :
                       (wb_we && (wb_addr == rs2)) ? wb_data :
@@ -231,7 +237,7 @@ wire WB_SEL_MEM = inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu;
 wire WB_SEL_PC  = inst_jal || inst_jalr;
 wire WB_SEL_CSR = inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
 assign wb_sel = {WB_SEL_MEM, WB_SEL_PC, WB_SEL_CSR};
-wire CSR_E = inst_ecall;
+wire CSR_E = inst_ecall || inst_ebreak;
 wire CSR_W = inst_csrrw || inst_csrrwi;
 wire CSR_S = inst_csrrs || inst_csrrsi;
 wire CSR_C = inst_csrrc || inst_csrrci;
