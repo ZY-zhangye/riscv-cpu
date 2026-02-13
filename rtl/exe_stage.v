@@ -1,13 +1,14 @@
 module exe_stage(
     input wire clk,
     input wire rst_n,
-    input wire [178:0] id_exe_bus_in,
+    input wire [179:0] id_exe_bus_in,
     output wire [189:0] exe_mem_bus_out,
     output wire [33:0] exe_if_jmp_bus,
     output wire [37:0] exe_id_data_bus,
     output wire [31:0] mem_rd_addr,
     input wire [31:0] mem_rd_data,
     output wire mem_re,
+    output mret_flag,
     input wire ms_allowin,
     output wire es_allowin,
     input wire ds_to_es_valid,
@@ -15,14 +16,15 @@ module exe_stage(
     output wire [11:0] csr_raddr,
     input wire [31:0] csr_rdata,
     input wire [5:0] exception_code_de,
-    output wire [5:0] exception_code_em
+    output wire [5:0] exception_code_em,
+    input wire exception_stalled
 );
 wire es_ready_go;
 reg prev_mem_re;
 reg es_valid;
 assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
-reg [178:0] id_exe_bus_r;
+reg [179:0] id_exe_bus_r;
 reg [5:0] exception_code_de_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -30,14 +32,14 @@ always @(posedge clk or negedge rst_n) begin
     end else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
     end
-    if (!rst_n) begin
-        id_exe_bus_r <= {179{1'b0}};
+    if (!rst_n || exception_stalled) begin
+        id_exe_bus_r <= {180{1'b0}};
         exception_code_de_r <= 6'b0;
     end else if (ds_to_es_valid && es_allowin) begin
         id_exe_bus_r <= id_exe_bus_in;
         exception_code_de_r <= exception_code_de;
     end 
-    if (!rst_n) begin
+    if (!rst_n || exception_stalled) begin
         prev_mem_re <= 1'b0;
     end else begin
         prev_mem_re <= mem_re;
@@ -73,7 +75,8 @@ assign {
     jmp_flag,
     csr_cmd,
     csr_addr,
-    mem_size
+    mem_size,
+    mret_flag
 } = id_exe_bus_r;
 
 
@@ -158,6 +161,14 @@ assign exe_mem_bus_out = {
 
 
 // 异常处理：将ID阶段传来的异常代码传递到EXE阶段，并在EXE阶段根据需要进行修改（例如EBREAK指令）
-assign exception_code_em = exception_code_de_r; // 目前不修改，直接传递
+wire exception_lam = ((!mem_size[0] && mem_rd_addr[1:0] != 2'b00 && mem_re) ||
+                     (mem_size[0] && !mem_size[1] && mem_rd_addr[0] != 1'b0 && mem_re)) ? 1'b1 : 1'b0; // 地址未对齐异常
+wire exception_laf = (mem_re && mem_rd_addr > 32'h6000_0000) ? 1'b1 : 1'b0; // 地址访问异常
+assign exception_code_em = ((jmp_flag || ALU_B) && alu_result[1:0] != 2'b00) ? 6'b100000 : // 地址未对齐异常
+                           ((jmp_flag || ALU_B) && alu_result > 32'h0000_ffff) ? 6'b100001 : // 地址访问越界异常
+                           (exception_code_de_r[5] && (exception_code_de_r[4:0] != 5'b01011)) ? exception_code_de_r :
+                           exception_lam ? 6'b100100 : // Load Address Misaligned
+                           exception_laf ? 6'b100101 : // Load Access Fault
+                           6'b0; // 无异常
 
 endmodule

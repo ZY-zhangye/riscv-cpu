@@ -13,6 +13,7 @@ module mem_stage(
     input wire [11:0] csr_raddr,
     output wire [31:0] csr_rdata,
     output wire exception_flag,
+    output wire exception_stalled,
     input wire [5:0] exception_code_em,
     input wire ws_allowin,
     output wire ms_allowin,
@@ -35,14 +36,14 @@ always @(posedge clk or negedge rst_n) begin
     end else if (ms_allowin) begin
         ms_valid <= es_to_ms_valid;
     end
-    if (!rst_n) begin
+    if (!rst_n || exception_stalled) begin
         exe_mem_bus_r <= {190{1'b0}};
         exception_code_em_r <= 6'b0;
     end else if (ms_allowin && es_to_ms_valid) begin
         exe_mem_bus_r <= exe_mem_bus_in;
         exception_code_em_r <= exception_code_em;
     end 
-    if (!rst_n) begin
+    if (!rst_n || exception_stalled) begin
         prev_mem_we <= 1'b0;
     end else begin
         prev_mem_we <= mem_we;
@@ -61,11 +62,13 @@ wire [11:0] csr_addr;
 wire [31:0] op1_data;
 wire [31:0] mem_rd_data;
 wire [2:0] mem_size;
+wire mem_we_r;
+wire rd_wen_r;
 assign {
     alu_result,
     rd_out,
-    rd_wen,
-    mem_we,
+    rd_wen_r,
+    mem_we_r,
     mem_re,
     wb_sel,
     mem_pc,
@@ -117,6 +120,22 @@ assign csr_data_w = exception_code_em_r[5] ? mem_pc : // 发生异常时写入PC
 assign debug_csr_we   = csr_we;
 assign debug_csr_waddr= csr_addr;
 assign debug_csr_wdata= csr_data_w;
+
+//异常处理
+wire exception_sam = (mem_we && !mem_size[0] && mem_wb_addr[1:0] != 2'b00) || (mem_we && mem_size[0] && !mem_size[1] && mem_wb_addr[0] != 1'b0); // 地址未对齐异常
+wire exception_saf = (mem_we && mem_wb_addr > 32'h6000_0000) ? 1'b1 : 1'b0; // 地址访问异常
+wire [5:0] exception_code = (exception_code_em_r[5] && (exception_code_em_r[4:0] != 5'b01011)) ? exception_code_em_r :
+                        exception_sam ? 6'b100110 : // Store Address Misaligned
+                        exception_saf ? 6'b101000 : // Store Access Fault
+                        6'b0; // 无异常
+wire [31:0] exception_mtval = exception_code == 6'b100010 ? op1_data :                                 //非法指令存储instruction;复用op1_data，减少信号数量
+                       (exception_code == 6'b100000 || exception_code == 6'b100000) ? alu_result :  //取指阶段地址异常存储PC
+                       (exception_code == 6'b100011 || exception_code == 6'b101011) ? 32'b0 :   //EBREAK和ECALL指令异常，mtval置0
+                       alu_result; //加载和存储地址异常存储访问地址
+assign mem_we = ms_valid && mem_we_r && !exception_code[5]; // 只有在没有异常时才允许写内存
+assign rd_wen = ms_valid && rd_wen_r && !exception_code[5]; // 只有在没有异常时才允许写回寄存器
+assign exception_stalled = exception_code[5] ? 1'b1 : 1'b0; //设定为异常发生时将exception_code的最高位置1，表示当前周期发生异常，供IF阶段判断是否需要暂停取指，另在其最高位为0且其它位为1时标识mret指令
+// CSR寄存器模块
 regfile_csr u_regfile_csr (
     .clk        (clk),
     .rst_n      (rst_n),
@@ -128,7 +147,8 @@ regfile_csr u_regfile_csr (
     .csr_we     (csr_we),
     .csr_ecall  (csr_ecall),
     .csr_mret   (csr_mret),
-    .exception_code(exception_code_em_r)
+    .exception_code(exception_code),
+    .exception_mtval(exception_mtval)
 );
 
 endmodule

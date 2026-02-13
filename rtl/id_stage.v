@@ -3,15 +3,17 @@ module id_stage (
     input wire rst_n,
     input wire [37:0] wb_data_bus,
     input wire [63:0] if_id_bus_in,
-    output wire [178:0] id_exe_bus_out,
+    output wire [179:0] id_exe_bus_out,
     input wire br_jmp_flag,
     input wire [37:0] mem_wb_regfile,
     input wire [37:0] exe_id_data_bus,
     input wire [5:0] exception_code_fd,
     output wire [5:0] exception_code_de,
+    input wire exception_stalled,
     output wire stall_flag,
     output wire ecall_flag,
-    output wire mret_flag,
+    input wire mret_flag_in,
+    input wire exception_flag,
     input wire es_allowin,
     input wire fs_to_ds_valid,
     output wire ds_allowin,
@@ -32,7 +34,7 @@ always @(posedge clk or negedge rst_n) begin
     end else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
     end
-    if (!rst_n) begin
+    if (!rst_n || exception_stalled || (mret_flag_in && exception_flag)) begin
         if_id_bus_r <= {64{1'b0}};
         exception_code_fd_r <= 6'b0;
     end else if (ds_allowin && fs_to_ds_valid) begin
@@ -66,6 +68,8 @@ wire [3:0] csr_cmd;
 wire [11:0] csr_addr;
 wire [2:0] mem_size;
 wire ebreak_flag;
+wire exception_ii;
+wire mret_flag;
 
 decoder_control u_decoder_control (
     .clk(clk),
@@ -92,6 +96,7 @@ decoder_control u_decoder_control (
     .stall_flag(stall_flag),
     .ecall_flag(ecall_flag),
     .ebreak_flag(ebreak_flag),
+    .exception_ii(exception_ii),
     .mret_flag(mret_flag),
     .ds_allowin(ds_allowin),
     .reg3(reg3)
@@ -114,15 +119,17 @@ assign id_exe_bus_out = {
     jmp_flag,
     csr_cmd,
     csr_addr,
-    mem_size
+    mem_size,
+    mret_flag
 };
 
 
 //中断和异常相关标识 共6位，足以表示所有异常类型 最高位标识出现异常或中断，低五位标识异常类型
 assign exception_code_de = exception_code_fd_r[5] ? exception_code_fd_r : 
-                           ebreak_flag ? 6'b100011 :
-                           ecall_flag  ? 6'b101011 : 
-                           mret_flag   ? 6'b011111 :
+                           exception_ii ? 6'b100010 :
+                           ebreak_flag  ? 6'b100011 :
+                           ecall_flag   ? 6'b101011 : 
+                           mret_flag    ? 6'b011111 :
                            6'b0;
 
 

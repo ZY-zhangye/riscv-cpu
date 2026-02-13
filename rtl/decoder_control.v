@@ -23,6 +23,7 @@ module decoder_control (
     output wire ebreak_flag,
     output wire mret_flag,
     input wire ds_allowin,
+    output wire exception_ii,
     output wire [3:0] csr_cmd,
     output wire [11:0] csr_addr,
     output wire [31:0] reg3
@@ -69,6 +70,7 @@ wire op_jalr   = opcode_hot[103];  // 1100111
 wire op_lui    = opcode_hot[55];   // 0110111
 wire op_auipc  = opcode_hot[23];   // 0010111
 wire op_system = opcode_hot[115];  // 1110011
+wire op_fence   = opcode_hot[15];    // 0001111
 
 wire f3_000 = (funct3 == 3'b000);
 wire f3_001 = (funct3 == 3'b001);
@@ -136,6 +138,28 @@ wire inst_ecall  = op_system & f3_000 & inst_in[25:20] == 6'b000000;
 wire inst_ebreak = op_system & f3_000 & inst_in[25:20] == 6'b000001;
 wire inst_mret   = op_system & f3_000 & f7_0011000;
 wire inst_wfi    = op_system & f3_000 & f7_0001000;
+wire inst_fence  = op_fence;// 这里不处理fence指令
+
+//非法指令
+assign exception_ii = !(inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu ||
+                        inst_sw || inst_sb || inst_sh ||
+                        inst_add || inst_sub || inst_and || inst_or || inst_xor || inst_sll || inst_srl || inst_sra || inst_slt || inst_sltu ||
+                        inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu ||
+                        inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu ||
+                        inst_jal  ||
+                        inst_jalr ||
+                        inst_lui ||
+                        inst_auipc ||
+                        inst_csrrw  ||
+                        inst_csrrs ||
+                        inst_csrrc  ||
+                        inst_csrrwi ||
+                        inst_csrrsi ||
+                        inst_csrrci ||
+                        inst_ecall  ||
+                        inst_ebreak ||
+                        inst_mret  ||
+                        inst_wfi || inst_fence) && (|inst_in); // 当指令不为全0时且不匹配任何合法指令格式时，认为是非法指令
 
 
 
@@ -185,6 +209,7 @@ wire OP2_RS2 = inst_add || inst_sub || inst_and || inst_or || inst_xor || inst_s
 assign op1_data = OP1_RS1 ? rs1_data_raw : 
                   OP1_PC ? pc_in : 
                   OP1_IMZ ? imm_z_sext :
+                  exception_ii ? inst_in : // 遇到非法指令时，将指令本身作为op1_data输出，供后续处理异常使用
                   32'b0;
 assign op2_data = OP2_IMI ? imm_i_sext : 
                   OP2_IMS ? imm_s_sext : 

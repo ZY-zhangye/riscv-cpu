@@ -28,7 +28,7 @@ module top(
     
     wire [63:0] if_id_bus;
     wire stall_flag_internal;
-    wire [178:0] id_exe_bus;
+    wire [179:0] id_exe_bus;
     wire [33:0] exe_if_jmp_bus;
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
@@ -53,6 +53,7 @@ module top(
     wire [5:0] exception_code_de;
     wire [5:0] exception_code_em;
     wire       exception_flag;
+    wire       exception_stalled;
     wire [31:0] csr_rdata;
     
 
@@ -74,6 +75,7 @@ module top(
         .ecall_flag     (ecall_flag),
         .mret_flag      (mret_flag),
         .exception_flag  (exception_flag),
+        .exception_stalled (exception_stalled),
         .exception_code_fd (exception_code_fd),
         .csr_ecall      (csr_ecall),
         .ds_allowin     (ds_allowin),
@@ -93,9 +95,11 @@ module top(
         .exe_id_data_bus (exe_id_data_bus),
         .stall_flag     (stall_flag_internal),
         .ecall_flag     (ecall_flag),
-        .mret_flag      (mret_flag),
+        .mret_flag_in      (mret_flag),
+        .exception_flag  (exception_flag),
         .exception_code_fd (exception_code_fd),
         .exception_code_de (exception_code_de),
+        .exception_stalled (exception_stalled),
         .ds_allowin     (ds_allowin),
         .fs_to_ds_valid (fs_to_ds_valid),
         .ds_to_es_valid (ds_to_es_valid),
@@ -113,7 +117,9 @@ module top(
         .exe_id_data_bus(exe_id_data_bus),
         .exception_code_de (exception_code_de),
         .exception_code_em (exception_code_em),
+        .exception_stalled (exception_stalled),
         .mem_rd_addr    (data_raddr),
+        .mret_flag      (mret_flag),
         .mem_re         (data_re),
         .mem_rd_data    (data_rdata),  
         .ms_allowin     (ms_allowin),
@@ -137,6 +143,7 @@ module top(
         .mem_wb_regfile (mem_wb_regfile),
         .csr_ecall      (csr_ecall),
         .exception_flag  (exception_flag),
+        .exception_stalled (exception_stalled),
         .ws_allowin     (ws_allowin),
         .ms_allowin     (ms_allowin),
         .es_to_ms_valid (es_to_ms_valid),

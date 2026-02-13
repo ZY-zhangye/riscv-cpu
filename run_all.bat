@@ -1,7 +1,7 @@
 @echo off
 REM === 指令集定义 ===
 set UI_INSTS=sw lw add addi sub and andi or ori xor xori sll srl sra slli srli srai slt slti sltu sltiu beq bne blt bge bltu bgeu jal jalr lui auipc lh lhu sh sb lb lbu
-set MI_INSTS=csr scall sbreak
+set MI_INSTS=csr scall sbreak ma_fetch
 
 REM === 仿真前编译 ===
 vlog -sv rtl/*.v test/*.v

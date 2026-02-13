@@ -11,7 +11,8 @@ module regfile_csr (
     input wire [11:0] csr_addr_w,
     input wire [31:0] csr_data_w,
     input wire csr_we,
-    input wire [5:0] exception_code
+    input wire [5:0] exception_code,
+    input wire [31:0] exception_mtval
 );
     
     reg [31:0] mstatus;
@@ -66,7 +67,7 @@ module regfile_csr (
                 // 处理异常：根据异常代码设置相关CSR寄存器
                 mepc <= csr_data_w; // 将引起异常的指令地址写入mepc
                 mcause <= {27'b0, exception_code[4:0]}; // 将异常代码写入mcause
-                mtval <= 32'b0; // 根据需要设置mtval，例如可以设置为引起异常的指令地址或数据
+                mtval <= exception_mtval; // 将引起异常的地址或数据写入mtval
             end else if (& exception_code[4:0]) begin
                 //mret指令
                 mstatus[3] <= mstatus[7];
@@ -91,8 +92,8 @@ module regfile_csr (
                         32'b0;
     
 
-    assign csr_ecall = mtvec;
-    assign csr_mret  = mepc;
+    assign csr_ecall =(csr_addr_w == 12'h305 && csr_we) ? csr_data_w : mtvec;
+    assign csr_mret  = (csr_addr_w == 12'h341 && csr_we) ? csr_data_w : mepc;
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             exception_flag <= 1'b0;

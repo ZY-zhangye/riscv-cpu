@@ -65,7 +65,7 @@ UI_INSTS=(sw lw add addi sub and andi or ori xor xori
           sll srl sra slli srli srai slt slti sltu sltiu 
           beq bne blt bge bltu bgeu jal jalr lui auipc lh lhu sh sb lb lbu)
 # 定义【特殊系统指令集】数组 - 包含特权指令/系统调用指令
-MI_INSTS=(csr scall sbreak)*/
+MI_INSTS=(csr scall sbreak ma_fetch)*/
 
 initial begin
     $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32-p-riscv.hex", mem);
