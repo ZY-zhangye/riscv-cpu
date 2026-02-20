@@ -10,7 +10,7 @@ module decoder_control (
     output wire [31:0] op2_data,
     output wire [4:0] rd_out,
     output wire rd_wen,
-    output wire [19:0] exe_fun,
+    output wire [21:0] exe_fun,
     output wire mem_we,
     output wire mem_re,
     output wire [2:0] mem_size,
@@ -85,6 +85,7 @@ wire f7_0000000 = (funct7 == 7'b0000000);
 wire f7_0100000 = (funct7 == 7'b0100000);
 wire f7_0001000 = (funct7 == 7'b0001000);
 wire f7_0011000 = (funct7 == 7'b0011000);
+wire f7_0000001 = (funct7 == 7'b0000001);
 
 wire inst_lw   = op_load  & f3_010;
 wire inst_lb   = op_load  & f3_000;
@@ -140,6 +141,11 @@ wire inst_mret   = op_system & f3_000 & f7_0011000;
 wire inst_wfi    = op_system & f3_000 & f7_0001000;
 wire inst_fence  = op_fence;// 这里不处理fence指令
 
+wire inst_mul    =op_op & f3_000 & f7_0000001;
+wire inst_mulh   =op_op & f3_001 & f7_0000001;
+wire inst_mulhsu =op_op & f3_010 & f7_0000001;
+wire inst_mulhu  =op_op & f3_011 & f7_0000001;
+
 //非法指令
 assign exception_ii = !(inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu ||
                         inst_sw || inst_sb || inst_sh ||
@@ -159,7 +165,7 @@ assign exception_ii = !(inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu ||
                         inst_ecall  ||
                         inst_ebreak ||
                         inst_mret  ||
-                        inst_wfi || inst_fence) && (|inst_in); // 当指令不为全0时且不匹配任何合法指令格式时，认为是非法指令
+                        inst_wfi || inst_fence || inst_mul || inst_mulh || inst_mulhsu || inst_mulhu) && (|inst_in); // 当指令不为全0时且不匹配任何合法指令格式时，认为是非法指令
 
 
 
@@ -197,7 +203,7 @@ assign rs2_data_raw = (rs2 == 5'b0) ? 32'b0 :
                       rs2_data;
 wire OP1_RS1 = inst_lw || inst_sw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori
              || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu || inst_slti || inst_sltiu
-             || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc || inst_lb || inst_lh || inst_lbu || inst_lhu || inst_sb || inst_sh;
+             || inst_jalr || inst_csrrw || inst_csrrs || inst_csrrc || inst_lb || inst_lh || inst_lbu || inst_lhu || inst_sb || inst_sh || inst_mul || inst_mulh || inst_mulhsu || inst_mulhu;
 wire OP1_PC  = inst_jal || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
 wire OP1_IMZ = inst_csrrwi || inst_csrrsi || inst_csrrci;
 wire OP2_IMI = inst_lw || inst_addi || inst_andi || inst_ori || inst_xori || inst_slli || inst_srli || inst_srai || inst_slti || inst_sltiu || inst_jalr || inst_lb || inst_lh || inst_lbu || inst_lhu;
@@ -205,7 +211,7 @@ wire OP2_IMS = inst_sw || inst_sb || inst_sh;
 wire OP2_IMJ = inst_jal;
 wire OP2_IMB = inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu;
 wire OP2_IMU = inst_lui || inst_auipc;
-wire OP2_RS2 = inst_add || inst_sub || inst_and || inst_or || inst_xor || inst_sll || inst_srl || inst_sra || inst_slt || inst_sltu;
+wire OP2_RS2 = inst_add || inst_sub || inst_and || inst_or || inst_xor || inst_sll || inst_srl || inst_sra || inst_slt || inst_sltu || inst_mul || inst_mulh || inst_mulhsu || inst_mulhu;
 assign op1_data = OP1_RS1 ? rs1_data_raw : 
                   OP1_PC ? pc_in : 
                   OP1_IMZ ? imm_z_sext :
@@ -221,7 +227,8 @@ assign op2_data = OP2_IMI ? imm_i_sext :
 
 assign rd_out = rd;
 assign rd_wen = inst_lw || inst_add || inst_sub || inst_addi || inst_and || inst_or || inst_xor || inst_andi || inst_ori || inst_xori || inst_sll || inst_srl || inst_sra || inst_slli || inst_srli || inst_srai || inst_slt || inst_sltu 
-                || inst_slti || inst_sltiu || inst_jal || inst_jalr || inst_lui || inst_auipc || inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci || inst_lb || inst_lh || inst_lbu || inst_lhu;
+                || inst_slti || inst_sltiu || inst_jal || inst_jalr || inst_lui || inst_auipc || inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci || inst_lb || inst_lh || inst_lbu || inst_lhu
+                || inst_mul || inst_mulh || inst_mulhsu || inst_mulhu;
 
 wire ALU_ADD = inst_lw || inst_sw || inst_add  || inst_jal || inst_lui || inst_auipc || inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu || inst_lb || inst_lh || inst_lbu || inst_lhu || inst_sh || inst_sb;
 wire ALU_ADDI = inst_addi;
@@ -242,11 +249,15 @@ wire ALU_BLT = inst_blt && ($signed(rs1_data_raw) < $signed(rs2_data_raw));
 wire ALU_BLTU= inst_bltu && (rs1_data_raw < rs2_data_raw);
 wire ALU_JALR= inst_jalr;
 wire ALU_COPY1= inst_csrrw || inst_csrrs || inst_csrrc || inst_csrrwi || inst_csrrsi || inst_csrrci;
-wire ALU_X = inst_ecall;
+wire ALU_X = inst_fence || inst_wfi || exception_ii; 
+wire [1:0] ALU_MUL = inst_mul    ? 2'b01 :
+                     inst_mulh   ? 2'b10 :
+                     inst_mulhsu ? 2'b11 :
+                     inst_mulhu  ? 2'b00 : 2'b00; // 乘法指令使用独立的ALU功能码，后续在EXE阶段根据这个功能码区分不同的乘法操作
 assign exe_fun = {ALU_ADD, ALU_ADDI, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
                   ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
                   ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
-                  ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X};
+                  ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X, ALU_MUL};
 assign mem_we = inst_sw || inst_sb || inst_sh;
 assign mem_re = inst_lw || inst_lb || inst_lh || inst_lbu || inst_lhu;
 // mem_size信号定义

@@ -35,8 +35,8 @@ module if_stage (
     assign pc_out = next_pc;
 
     reg fs_valid;
-    assign fs_ready_go = 1'b1;
-    assign fs_allowin = !fs_valid || fs_ready_go && ds_allowin;
+    wire fs_ready_go = 1'b1;
+    wire fs_allowin = !fs_valid || fs_ready_go && ds_allowin;
     assign fs_to_ds_valid = fs_valid && fs_ready_go;
     reg ds_allowin_reg;
     reg [31:0] fs_inst_reg;

@@ -1,7 +1,7 @@
 module exe_stage(
     input wire clk,
     input wire rst_n,
-    input wire [179:0] id_exe_bus_in,
+    input wire [181:0] id_exe_bus_in,
     output wire [189:0] exe_mem_bus_out,
     output wire [33:0] exe_if_jmp_bus,
     output wire [37:0] exe_id_data_bus,
@@ -24,7 +24,7 @@ reg prev_mem_re;
 reg es_valid;
 assign es_allowin = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid = ds_to_es_valid && es_ready_go;
-reg [179:0] id_exe_bus_r;
+reg [181:0] id_exe_bus_r;
 reg [5:0] exception_code_de_r;
 always @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -33,7 +33,7 @@ always @(posedge clk or negedge rst_n) begin
         es_valid <= ds_to_es_valid;
     end
     if (!rst_n || exception_stalled) begin
-        id_exe_bus_r <= {180{1'b0}};
+        id_exe_bus_r <= {182{1'b0}};
         exception_code_de_r <= 6'b0;
     end else if (ds_to_es_valid && es_allowin) begin
         id_exe_bus_r <= id_exe_bus_in;
@@ -52,7 +52,7 @@ wire signed [31:0] op1_data_s = op1_data;
 wire signed [31:0] op2_data_s = op2_data;
 wire [4:0] rd_out;
 wire rd_wen;
-wire [19:0] exe_fun;
+wire [21:0] exe_fun;
 wire mem_we;
 wire [2:0] wb_sel;
 wire [31:0] exe_pc;
@@ -100,27 +100,42 @@ wire ALU_JALR;
 wire ALU_COPY1;
 wire ALU_X;
 wire ALU_ADDI;
+wire [1:0] ALU_MUL;
 assign {
     ALU_ADD, ALU_ADDI, ALU_SUB, ALU_AND, ALU_OR, ALU_XOR,
     ALU_SLL, ALU_SRL, ALU_SRA, ALU_SLT, ALU_SLTU,
     ALU_BEQ, ALU_BNE, ALU_BGE, ALU_BGEU, ALU_BLT,
-    ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X
+    ALU_BLTU, ALU_JALR, ALU_COPY1, ALU_X, ALU_MUL
 } = exe_fun;
 wire ALU_B = ALU_BEQ || ALU_BNE || ALU_BGE || ALU_BGEU || ALU_BLT || ALU_BLTU;
-wire [31:0] alu_result = ALU_ADD ? (op1_data + op2_data) :
-                         ALU_ADDI ? ($signed(op1_data_s) + $signed(op2_data_s)) :
-                         ALU_SUB ? (op1_data - op2_data) :
-                         ALU_AND ? (op1_data & op2_data) : 
-                         ALU_OR  ? (op1_data | op2_data) :
-                         ALU_XOR ? (op1_data ^ op2_data) :
-                         ALU_SLL ? (op1_data << op2_data[4:0]) :
-                         ALU_SRL ? (op1_data >> op2_data[4:0]) :
-                         ALU_SRA ? ( ({ {32{op1_data[31]}}, op1_data } >> op2_data[4:0]) & 32'hFFFFFFFF ) :
-                         ALU_SLT ? ($signed(op1_data_s) < $signed(op2_data_s) ? 32'd1 : 32'd0) :
-                         ALU_SLTU? (op1_data < op2_data ? 32'd1 : 32'd0) :
-                         ALU_JALR? ((op1_data + op2_data) & ~32'd1) :
-                         ALU_COPY1? csr_rdata :
-                         32'b0;     
+reg [31:0] alu_result;
+wire [63:0] mul_full,mul_full_hsu,mul_full_hu;
+assign mul_full = $signed(op1_data_s) * $signed(op2_data_s);
+assign mul_full_hsu = $signed(op1_data_s) * $unsigned(op2_data);
+assign mul_full_hu = $unsigned(op1_data) * $unsigned(op2_data);
+always @(*) begin
+    case (1'b1)
+        ALU_ADD:   alu_result = op1_data + op2_data;
+        ALU_ADDI:  alu_result = $signed(op1_data_s) + $signed(op2_data_s);
+        ALU_SUB:   alu_result = op1_data - op2_data;
+        ALU_AND:   alu_result = op1_data & op2_data;
+        ALU_OR:    alu_result = op1_data | op2_data;
+        ALU_XOR:   alu_result = op1_data ^ op2_data;
+        ALU_SLL:   alu_result = op1_data << op2_data[4:0];
+        ALU_SRL:   alu_result = op1_data >> op2_data[4:0];
+        ALU_SRA:   alu_result = ( { {32{op1_data[31]}}, op1_data } >> op2_data[4:0] ) & 32'hFFFFFFFF;
+        ALU_SLT:   alu_result = ($signed(op1_data_s) < $signed(op2_data_s)) ? 32'd1 : 32'd0;
+        ALU_SLTU:  alu_result = (op1_data < op2_data) ? 32'd1 : 32'd0;
+        ALU_JALR:  alu_result = (op1_data + op2_data) & ~32'd1;
+        ALU_COPY1: alu_result = csr_rdata;
+        ALU_X:     alu_result = 32'b0; // 对于不涉及ALU计算的指令，ALU结果置0
+        (ALU_MUL == 2'b01): alu_result = mul_full[31:0]; // MUL
+        (ALU_MUL == 2'b10): alu_result = mul_full[63:32]; // MULH
+        (ALU_MUL == 2'b11): alu_result = mul_full_hsu[63:32]; // MULHSU
+        (ALU_MUL == 2'b00): alu_result = mul_full_hu[63:32]; // MULHU
+        default:   alu_result = 32'b0;
+    endcase
+end
 
 wire [31:0] exe_id_data;
 wire [31:0] mem_rdata_ext;

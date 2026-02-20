@@ -66,12 +66,14 @@ UI_INSTS=(sw lw add addi sub and andi or ori xor xori
           beq bne blt bge bltu bgeu jal jalr lui auipc lh lhu sh sb lb lbu)
 # 定义【特殊系统指令集】数组 - 包含特权指令/系统调用指令
 MI_INSTS=(csr scall sbreak ma_fetch)*/
+//乘法指令
+// UM_INSTS=(mul mulh mulhu mulhsu)
 
 initial begin
-    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32-p-riscv.hex", mem);
-    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32-p-riscv.hex", data_mem);
+    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32um-p-mulhu.hex", mem);
+    $readmemh("F:\\IC\\riscv-cpu\\hex\\riscv-tests\\rv32um-p-mulhu.hex", data_mem);
     $dumpfile("wave.vcd");     // 生成vcd波形文件
-    $dumpvars(0, tb_top);      // 记录所有变量
+    $dumpvars(0, u_top);      // 记录所有变量
     $display("Starting simulation...");
 end
 

@@ -28,7 +28,7 @@ module top(
     
     wire [63:0] if_id_bus;
     wire stall_flag_internal;
-    wire [179:0] id_exe_bus;
+    wire [181:0] id_exe_bus;
     wire [33:0] exe_if_jmp_bus;
     wire br_jmp_flag = exe_if_jmp_bus[33] | exe_if_jmp_bus[0];
     wire ecall_flag;
